@@ -1,18 +1,35 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Overlays Within Street View</title>
+    <title>spaceGUARD</title>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
     <script type="module" src="./main.js"></script>
   </head>
   <body>
-    <div id="controls">
+    <div class="navbar">
+      <h2>Mapping Transmission Lines and Substations in the United States</h2>
+    </div>
+    <div class="main-body">
+      <div id="controls">
         <select id="regionDropdown"></select>
         <select id="ssDropdown"></select>
         <label>
-            <input type="checkbox" id="toggleLines" /> Show Transmission Lines
+          <input type="checkbox" id="toggleLines" /> Show Transmission Lines
         </label>
+      </div>
+      <div id="infoBox" class="info-box">
+        <p><strong>Name:</strong> <span id="ssName"></span></p>
+        <p><strong>Operator:</strong> <span id="ssOperator"></span></p>
+        <p><strong>Voltages:</strong> <span id="ssVoltages"></span></p>
+        <p>
+          <strong>Connected Line Voltages:</strong>
+          <span id="lineVoltages"></span>
+        </p>
+      </div>
+      <div id="map"></div>
     </div>
-    <div id="map"></div>
+    <div class="footer">
+      <h3>Footer</h3>
+    </div>
   </body>
 </html>

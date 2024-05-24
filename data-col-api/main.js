@@ -106,8 +106,17 @@ function populateSubstations() {
     option.value = JSON.stringify({
       lat: substation.lat,
       lon: substation.lon,
+      SS_ID: substation.SS_ID,
+      SS_NAME: substation.SS_NAME,
+      SS_OPERATOR: substation.SS_OPERATOR,
+      SS_VOLTAGE: substation.SS_VOLTAGE,
+      SS_TYPE: substation.SS_TYPE,
+      REGION_ID: substation.REGION_ID,
+      REGION: substation.REGION,
       connected_tl_id: substation.connected_tl_id,
+      LINE_VOLTS: substation.LINE_VOLTS,
     });
+
     option.text = `${index + 1}) ${substation.SS_ID}`;
     ssDropdown.add(option);
   });
@@ -115,6 +124,16 @@ function populateSubstations() {
   if (substations.length > 0) {
     updateMapCenter();
   }
+}
+
+// Function to update the info box based on selected substation
+
+function updateInfoBox(substation) {
+  document.getElementById("ssName").innerText = substation.SS_NAME;
+  document.getElementById("ssOperator").innerText = substation.SS_OPERATOR;
+  document.getElementById("ssVoltages").innerText = substation.SS_VOLTAGE;
+  document.getElementById("lineVoltages").innerText =
+    substation.LINE_VOLTS.join(", ");
 }
 
 // Function to update the map center based on selected substation
@@ -126,6 +145,8 @@ function updateMapCenter() {
     lat: parseFloat(selectedSubstation.lat),
     lng: parseFloat(selectedSubstation.lon),
   };
+
+  updateInfoBox(selectedSubstation); // Update the info box
 
   // Clear existing markers
   currentMarkers.forEach((marker) => marker.setMap(null));
