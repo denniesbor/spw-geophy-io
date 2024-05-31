@@ -27,31 +27,31 @@ function initMap() {
     ["Tilt Up", "tilt", -5, google.maps.ControlPosition.BOTTOM_CENTER],
   ];
 
-  buttons.forEach(([text, mode, amount, position]) => {
-    const controlDiv = document.createElement("div");
-    const controlUI = document.createElement("button");
+  // buttons.forEach(([text, mode, amount, position]) => {
+  //   const controlDiv = document.createElement("div");
+  //   const controlUI = document.createElement("button");
 
-    controlUI.classList.add("ui-button");
-    controlUI.innerText = `${text}`;
-    controlUI.addEventListener("click", () => {
-      adjustMap(mode, amount);
-    });
-    controlDiv.appendChild(controlUI);
-    map.controls[position].push(controlDiv);
-  });
+  //   controlUI.classList.add("ui-button");
+  //   controlUI.innerText = `${text}`;
+  //   controlUI.addEventListener("click", () => {
+  //     adjustMap(mode, amount);
+  //   });
+  //   controlDiv.appendChild(controlUI);
+  //   map.controls[position].push(controlDiv);
+  // });
 
-  const adjustMap = function (mode, amount) {
-    switch (mode) {
-      case "tilt":
-        map.setTilt(map.getTilt() + amount);
-        break;
-      case "rotate":
-        map.setHeading(map.getHeading() + amount);
-        break;
-      default:
-        break;
-    }
-  };
+  // const adjustMap = function (mode, amount) {
+  //   switch (mode) {
+  //     case "tilt":
+  //       map.setTilt(map.getTilt() + amount);
+  //       break;
+  //     case "rotate":
+  //       map.setHeading(map.getHeading() + amount);
+  //       break;
+  //     default:
+  //       break;
+  //   }
+  // };
 
   mapDivRect = document.getElementById("map").getBoundingClientRect();
 
