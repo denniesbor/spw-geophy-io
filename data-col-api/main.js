@@ -16,7 +16,7 @@ function initMap() {
     },
     zoom: 16,
     heading: 320,
-    tilt: 47.5,
+    tilt: 0,
     mapId: "90f87356969d889c",
   });
 
