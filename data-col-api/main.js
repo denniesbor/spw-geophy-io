@@ -3,17 +3,90 @@ import "./style.css";
 let map, panorama, data, transmissionLinesLayer;
 let currentMarkers = [];
 let allTransmissionLines = [];
+let drawingManager;
+let selectedArea;
+let mapDivRect;
 
 // Initialize map
 function initMap() {
   map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: 37.7749, lng: -122.4194 },
+    center: {
+      lat: 37.7893719,
+      lng: -122.3942,
+    },
     zoom: 16,
-    streetViewControl: true,
-    mapId: "34e7058f5ed7d906",
+    heading: 320,
+    tilt: 47.5,
+    mapId: "90f87356969d889c",
   });
 
+  const buttons = [
+    ["Rotate Left", "rotate", 5, google.maps.ControlPosition.LEFT_CENTER],
+    ["Rotate Right", "rotate", -5, google.maps.ControlPosition.RIGHT_CENTER],
+    ["Tilt Down", "tilt", 5, google.maps.ControlPosition.TOP_CENTER],
+    ["Tilt Up", "tilt", -5, google.maps.ControlPosition.BOTTOM_CENTER],
+  ];
+
+  buttons.forEach(([text, mode, amount, position]) => {
+    const controlDiv = document.createElement("div");
+    const controlUI = document.createElement("button");
+
+    controlUI.classList.add("ui-button");
+    controlUI.innerText = `${text}`;
+    controlUI.addEventListener("click", () => {
+      adjustMap(mode, amount);
+    });
+    controlDiv.appendChild(controlUI);
+    map.controls[position].push(controlDiv);
+  });
+
+  const adjustMap = function (mode, amount) {
+    switch (mode) {
+      case "tilt":
+        map.setTilt(map.getTilt() + amount);
+        break;
+      case "rotate":
+        map.setHeading(map.getHeading() + amount);
+        break;
+      default:
+        break;
+    }
+  };
+
+  mapDivRect = document.getElementById("map").getBoundingClientRect();
+
   panorama = map.getStreetView();
+
+  drawingManager = new google.maps.drawing.DrawingManager({
+    drawingMode: google.maps.drawing.OverlayType.RECTANGLE,
+    drawingControl: true,
+    drawingControlOptions: {
+      position: google.maps.ControlPosition.TOP_CENTER,
+      drawingModes: ["rectangle"],
+    },
+    rectangleOptions: {
+      fillColor: "#ffff00",
+      fillOpacity: 0.1,
+      strokeWeight: 2,
+      clickable: false,
+      editable: true,
+      zIndex: 1,
+    },
+  });
+
+  // drawingManager.setMap(map);
+
+  // google.maps.event.addListener(
+  //   drawingManager,
+  //   "rectanglecomplete",
+  //   function (rectangle) {
+  //     if (selectedArea) {
+  //       selectedArea.setMap(null);
+  //     }
+  //     selectedArea = rectangle;
+  //     drawingManager.setDrawingMode(null); // Disable drawing mode after the rectangle is complete
+  //   }
+  // );
 
   // Fetch and process data
   fetchData();
@@ -29,6 +102,9 @@ function initMap() {
   document
     .getElementById("toggleLines")
     .addEventListener("change", toggleTransmissionLines);
+  // document
+  //   .getElementById("captureButton")
+  //   .addEventListener("click", captureMap);
 
   map.addListener("click", function (event) {
     const location = {
@@ -37,6 +113,91 @@ function initMap() {
     };
     checkStreetView(location);
   });
+}
+
+function captureMap() {
+  if (selectedArea) {
+    const bounds = selectedArea.getBounds();
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+
+    // Convert geographic coordinates to pixel coordinates
+    const projection = map.getProjection();
+    const scale = Math.pow(2, map.getZoom());
+
+    const neWorldPoint = projection.fromLatLngToPoint(ne);
+    const swWorldPoint = projection.fromLatLngToPoint(sw);
+
+    const nePixel = new google.maps.Point(
+      neWorldPoint.x * scale,
+      neWorldPoint.y * scale
+    );
+    const swPixel = new google.maps.Point(
+      swWorldPoint.x * scale,
+      swWorldPoint.y * scale
+    );
+
+    const mapDiv = document.getElementById("map");
+    const mapRect = mapDiv.getBoundingClientRect();
+
+    // Calculate the center pixel coordinates
+    const mapCenter = map.getCenter();
+    const mapCenterWorldPoint = projection.fromLatLngToPoint(mapCenter);
+    const mapCenterPixel = new google.maps.Point(
+      mapCenterWorldPoint.x * scale,
+      mapCenterWorldPoint.y * scale
+    );
+
+    // Calculate offsets for the map container
+    const containerStartX = mapCenterPixel.x - mapRect.width / 2;
+    const containerStartY = mapCenterPixel.y - mapRect.height / 2;
+
+    // Calculate the startX, startY, width, and height for the clipping area
+    const startX = nePixel.x - containerStartX;
+    const startY = nePixel.y - containerStartY;
+    const width = swPixel.x - nePixel.x;
+    const height = swPixel.y - nePixel.y;
+
+    // Capture the entire map using html2canvas
+    html2canvas(mapDiv, {
+      allowTaint: true,
+      useCORS: true,
+      scale: window.devicePixelRatio,
+    })
+      .then(function (canvas) {
+        // Create a new canvas to hold the clipped image
+        const clippedCanvas = document.createElement("canvas");
+        const context = clippedCanvas.getContext("2d");
+
+        // Set the dimensions of the clipped canvas
+        clippedCanvas.width = Math.abs(width);
+        clippedCanvas.height = Math.abs(height);
+
+        // Draw the clipped image onto the new canvas
+        context.drawImage(
+          canvas,
+          startX, // x-coordinate where to start clipping
+          startY, // y-coordinate where to start clipping
+          width, // width of the clipped area
+          height, // height of the clipped area
+          0, // x-coordinate where to place the clipped image on the new canvas
+          0, // y-coordinate where to place the clipped image on the new canvas
+          Math.abs(width), // width of the clipped image on the new canvas
+          Math.abs(height) // height of the clipped image on the new canvas
+        );
+
+        // Convert clipped canvas to an image and display or save it
+        const link = document.createElement("a");
+        link.download = "selected-area-screenshot.png";
+        link.href = clippedCanvas.toDataURL();
+        link.click();
+      })
+      .catch((error) => {
+        console.error("Error capturing the map area:", error);
+      });
+  } else {
+    alert("Please draw a rectangle first.");
+  }
 }
 
 // Fetch data from JSON file
@@ -127,7 +288,6 @@ function populateSubstations() {
 }
 
 // Function to update the info box based on selected substation
-
 function updateInfoBox(substation) {
   document.getElementById("ssName").innerText = substation.SS_NAME;
   document.getElementById("ssOperator").innerText = substation.SS_OPERATOR;
@@ -189,15 +349,6 @@ function checkStreetView(location) {
   });
 }
 
-function toggleStreetView() {
-  const toggle = panorama.getVisible();
-  if (toggle == false) {
-    panorama.setVisible(true);
-  } else {
-    panorama.setVisible(false);
-  }
-}
-
 // Function to display transmission lines connected to the selected substation
 function displayTransmissionLines(connected_tl_id) {
   if (transmissionLinesLayer) {
@@ -207,9 +358,6 @@ function displayTransmissionLines(connected_tl_id) {
   const filteredLines = allTransmissionLines.filter((line) =>
     connected_tl_id.includes(line.properties.line_id)
   );
-
-  console.log("Filtered transmission lines:", filteredLines); // Debugging step
-
   transmissionLinesLayer.addGeoJson({
     type: "FeatureCollection",
     features: filteredLines,
@@ -232,7 +380,7 @@ function loadScript() {
   const script = document.createElement("script");
   script.src = `https://maps.googleapis.com/maps/api/js?key=${
     import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-  }&callback=initMap&libraries=marker&v=weekly`;
+  }&loading=async&libraries=drawing,marker&callback=initMap&v=weekly`;
   script.async = true;
   script.defer = true;
   document.head.appendChild(script);

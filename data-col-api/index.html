@@ -10,12 +10,14 @@
       <h2>Mapping Transmission Lines and Substations in the United States</h2>
     </div>
     <div class="main-body">
+      <div class="selection-rectangle" id="selectionRectangle"></div>
       <div id="controls">
         <select id="regionDropdown"></select>
         <select id="ssDropdown"></select>
         <label>
           <input type="checkbox" id="toggleLines" /> Show Transmission Lines
         </label>
+        <button id="captureButton">Capture Map</button>
       </div>
       <div id="infoBox" class="info-box">
         <p><strong>Name:</strong> <span id="ssName"></span></p>
@@ -31,5 +33,6 @@
     <div class="footer">
       <h3>Footer</h3>
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   </body>
 </html>
