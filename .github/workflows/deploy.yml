@@ -24,9 +24,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Create .nojekyll file
-        run: touch .nojekyll
-
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
@@ -47,6 +44,9 @@ jobs:
       - name: Rename build output to docs
         run: mv dist docs
         working-directory: ./data-col-api
+
+      - name: Disable Jekyll
+        run: touch ./data-col-api/docs/.nojekyll
 
       - name: Checkout
         uses: actions/checkout@v3
