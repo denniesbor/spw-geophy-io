@@ -95,9 +95,21 @@ export function getMarkers(map) {
     .getElementById("disableMarkerAddingButton")
     .addEventListener("click", disableMarkerSelection);
 
-  document
-    .getElementById("saveMarkers")
-    .addEventListener("click", () => saveMarkersAsGeoJSON(markers));
+  // Remove markers incase of a change of substation
+  document.getElementById("ssDropdown").addEventListener("change", () => {
+    clearMarkers();
+  });
+
+  document.getElementById("saveMarkers").addEventListener("click", () => {
+    saveMarkersAsGeoJSON(markers);
+    clearMarkers();
+  });
+}
+
+// Function to clear markers
+function clearMarkers() {
+  markers.forEach((marker) => marker.setMap(null));
+  markers = [];
 }
 
 // Modify the function to disable marker selection

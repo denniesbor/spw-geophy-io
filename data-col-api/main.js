@@ -3,8 +3,8 @@ import { getMap } from "./src/Map";
 import { getMarkers } from "./src/Markers";
 import {
   updateMapCenter,
-  toggleTransmissionLines,
   checkStreetView,
+  selectedSubstation,
 } from "./src/Utils";
 import { RotateTilt } from "./src/RotateTilt";
 
@@ -41,11 +41,18 @@ function initMap() {
         allTransmissionLines
       )
     );
+
   document
     .getElementById("toggleLines")
     .addEventListener("change", () =>
-      toggleTransmissionLines(transmissionLinesLayer, map)
+      toggleTransmissionLines(
+        selectedSubstation.connected_tl_id,
+        transmissionLinesLayer,
+        allTransmissionLines,
+        map
+      )
     );
+
   // // document
   // //   .getElementById("captureButton")
   // //   .addEventListener("click", captureMap);
@@ -152,6 +159,52 @@ function populateSubstations() {
       allTransmissionLines
     );
   }
+}
+
+// Function to display transmission lines connected to the selected substation
+function displayTransmissionLines(
+  connected_tl_id,
+  transmissionLinesLayer,
+  allTransmissionLines,
+  map
+) {
+  if (transmissionLinesLayer) {
+    transmissionLinesLayer.setMap(null);
+  }
+  transmissionLinesLayer = new google.maps.Data();
+  const filteredLines = allTransmissionLines.filter((line) =>
+    connected_tl_id.includes(line.properties.line_id)
+  );
+  transmissionLinesLayer.addGeoJson({
+    type: "FeatureCollection",
+    features: filteredLines,
+  });
+  transmissionLinesLayer.setMap(map);
+  return transmissionLinesLayer;
+}
+
+// Function to toggle transmission lines
+export function toggleTransmissionLines(
+  connected_tl_id,
+  currentTransmissionLinesLayer,
+  allTransmissionLines,
+  map
+) {
+  const toggleLines = document.getElementById("toggleLines");
+  if (toggleLines.checked) {
+    currentTransmissionLinesLayer = displayTransmissionLines(
+      connected_tl_id,
+      currentTransmissionLinesLayer,
+      allTransmissionLines,
+      map
+    );
+  } else {
+    if (currentTransmissionLinesLayer) {
+      currentTransmissionLinesLayer.setMap(null);
+      currentTransmissionLinesLayer = null;
+    }
+  }
+  transmissionLinesLayer = currentTransmissionLinesLayer;
 }
 
 // Load Google Maps API asynchronously

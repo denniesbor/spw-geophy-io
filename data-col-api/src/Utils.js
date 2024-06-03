@@ -41,14 +41,6 @@ export function updateMapCenter(
 
   // Set map center to the selected substation
   map.setCenter(location);
-
-  // Display transmission lines connected to the selected substation
-  displayTransmissionLines(
-    selectedSubstation.connected_tl_id,
-    transmissionLinesLayer,
-    allTransmissionLines,
-    map
-  );
 }
 
 // Function to check if Street View exists and toggle it
@@ -89,14 +81,4 @@ function displayTransmissionLines(
     features: filteredLines,
   });
   transmissionLinesLayer.setMap(map);
-}
-
-// Function to toggle transmission lines
-export function toggleTransmissionLines(transmissionLinesLayer, map) {
-  const toggleLines = document.getElementById("toggleLines");
-  if (toggleLines.checked) {
-    transmissionLinesLayer.setMap(map);
-  } else {
-    transmissionLinesLayer.setMap(null);
-  }
 }

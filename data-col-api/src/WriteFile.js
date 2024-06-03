@@ -1,7 +1,6 @@
 import { selectedSubstation } from "./Utils";
 
 export function saveMarkersAsGeoJSON(markers) {
-
   let threePhaseTransformerCount = 0;
   let singlePhaseTransformerCount = 0;
   let primaryPowerLineCount = 0;
