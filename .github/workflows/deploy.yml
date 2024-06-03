@@ -2,7 +2,7 @@ name: Deploy static content to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["testing"]
   workflow_dispatch:
 
 permissions:
@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Create .nojekyll file
+        run: touch .nojekyll
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -45,21 +48,17 @@ jobs:
         run: mv dist docs
         working-directory: ./data-col-api
 
-      - name: Disable Jekyll
-        run: touch ./data-col-api/docs/.nojekyll
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-pages-artifact@v1
         with:
-          name: website
           path: ./data-col-api/docs
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: JamesIves/github-pages-deploy-action@4.1.5
-        with:
-          BRANCH: gh-pages
-          FOLDER: ./data-col-api/docs
+        uses: actions/deploy-pages@v1
 
       - name: Output deployment URL
-        run: echo "Deployed to ${{ steps.deployment.outputs.url }}"
+        run: echo "Deployed to ${{ steps.deployment.outputs.page_url }}"
