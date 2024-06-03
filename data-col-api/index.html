@@ -10,7 +10,7 @@
       <h2>Mapping Transmission Lines and Substations in the United States</h2>
     </div>
     <div class="main-body">
-      <div class="selection-rectangle" id="selectionRectangle"></div>
+      <!-- <div class="selection-rectangle" id="selectionRectangle"></div> -->
       <div id="controls">
         <select id="regionDropdown"></select>
         <select id="ssDropdown"></select>
@@ -27,6 +27,18 @@
           <strong>Connected Line Voltages:</strong>
           <span id="lineVoltages"></span>
         </p>
+      </div>
+      <div id="markers">
+        <div class="marker" id="three_ph_transformer">3 Ph Transformer</div>
+        <div class="marker" id="single_ph_transformer">
+          Single Ph Transformer
+        </div>
+        <div class="marker" id="circuit_breaker">Circuit Breaker</div>
+        <div class="marker" id="primary_power_line">Primary Power Line</div>
+        <div class="marker" id="sec_power_line">Secondary Power Line</div>
+        <div class="marker" id="control_building">Control Building</div>
+        <button id="disableMarkerAddingButton">Done Adding Markers</button>
+        <button id="saveMarkers">Save Markers</button>
       </div>
       <div id="map"></div>
     </div>

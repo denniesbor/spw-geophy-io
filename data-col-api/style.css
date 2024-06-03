@@ -109,3 +109,45 @@ body {
 .ui-button:hover {
   background: rgb(235, 235, 235);
 }
+
+#markers {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto; /* To handle overflow if the markers don't fit in one line */
+  padding: 10px;
+  background-color: #f0f0f0;
+}
+
+.marker,
+#disableMarkerAddingButton,
+#saveMarkers {
+  padding: 10px;
+  margin: 5px;
+  background-color: #007BFF; /* Original bluish color */
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  flex: 0 0 auto; /* Ensure markers stay on one line */
+}
+
+#disableMarkerAddingButton {
+  background-color: #dc3545; /* Red color */
+}
+
+#saveMarkers {
+  background-color: #28a745; /* Green color */
+}
+
+.marker.selected {
+  background-color: #0056b3; /* Toned down bluish color */
+  cursor: not-allowed; /* Change cursor to not-allowed */
+}
+
+.marker-disabled {
+  cursor: not-allowed; /* Change cursor to not-allowed */
+}
+
+.marker:hover {
+  background-color: #0056b3; /* Slight change on hover for better UX */
+}
