@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>spaceGUARD</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
+    <script type="module" crossorigin src="./assets/index-D4ajBfYV.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BYDJmQwa.css">
+  </head>
+  <body>
+    <div class="navbar">
+      <h2>Mapping Transmission Lines and Substations in the United States</h2>
+    </div>
+    <div class="main-body">
+      <!-- <div class="selection-rectangle" id="selectionRectangle"></div> -->
+      <div id="controls">
+        <select id="regionDropdown"></select>
+        <select id="ssDropdown"></select>
+        <label>
+          <input type="checkbox" id="toggleLines" /> Show Transmission Lines
+        </label>
+        <!-- <button id="captureButton">Capture Map</button> -->
+      </div>
+      <div id="infoBox" class="info-box">
+        <p><strong>Name:</strong> <span id="ssName"></span></p>
+        <p><strong>Operator:</strong> <span id="ssOperator"></span></p>
+        <p><strong>Voltages:</strong> <span id="ssVoltages"></span></p>
+        <p>
+          <strong>Connected Line Voltages:</strong>
+          <span id="lineVoltages"></span>
+        </p>
+      </div>
+      <div id="markers">
+        <div class="marker" id="three_ph_transformer">3 Ph Transformer</div>
+        <div class="marker" id="single_ph_transformer">
+          Single Ph Transformer
+        </div>
+        <div class="marker" id="circuit_breaker">Circuit Breaker</div>
+        <div class="marker" id="primary_power_line">Primary Power Line</div>
+        <div class="marker" id="sec_power_line">Secondary Power Line</div>
+        <div class="marker" id="control_building">Control Building</div>
+        <button id="disableMarkerAddingButton">Done Adding Markers</button>
+        <button id="saveMarkers">Save Markers</button>
+      </div>
+      <div id="map"></div>
+    </div>
+    <div class="footer">
+      <h3>Footer</h3>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  </body>
+</html>
