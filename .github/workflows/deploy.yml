@@ -48,12 +48,6 @@ jobs:
       - name: Disable Jekyll
         run: touch ./data-col-api/docs/.nojekyll
 
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
