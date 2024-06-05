@@ -12,10 +12,7 @@ function updateInfoBox(substation) {
 
 // Function to update the map center based on selected substation
 export function updateMapCenter(
-  map,
-  panorama,
-  transmissionLinesLayer,
-  allTransmissionLines
+  map
 ) {
   const ssDropdown = document.getElementById("ssDropdown");
   selectedSubstation = JSON.parse(ssDropdown.value);
@@ -57,28 +54,6 @@ export function checkStreetView(location, panorama) {
       panorama.setVisible(true);
     } else {
       panorama.setVisible(false);
-      console.log("Street View data not found for this location.");
     }
   });
-}
-
-// Function to display transmission lines connected to the selected substation
-function displayTransmissionLines(
-  connected_tl_id,
-  transmissionLinesLayer,
-  allTransmissionLines,
-  map
-) {
-  if (transmissionLinesLayer) {
-    transmissionLinesLayer.setMap(null);
-  }
-  transmissionLinesLayer = new google.maps.Data();
-  const filteredLines = allTransmissionLines.filter((line) =>
-    connected_tl_id.includes(line.properties.line_id)
-  );
-  transmissionLinesLayer.addGeoJson({
-    type: "FeatureCollection",
-    features: filteredLines,
-  });
-  transmissionLinesLayer.setMap(map);
 }

@@ -12,12 +12,15 @@ let map, panorama, data, transmissionLinesLayer;
 let allTransmissionLines = [];
 let mapDivRect;
 
+const toggleSubstationLabels = document.getElementById(
+  "toggleSubstationLabels"
+);
+
 // Initialize map
-function initMap() {
+async function initMap() {
   map = getMap();
 
-  // Get markers  from Markers.js
-  getMarkers(map);
+  // Rotate or tilt map
   RotateTilt(map);
 
   mapDivRect = document.getElementById("map").getBoundingClientRect();
@@ -27,6 +30,10 @@ function initMap() {
   fetchData();
   fetchTransmissionLines();
 
+  // Get markers  from Markers.js
+  getMarkers(map);
+
+
   // Event listeners
   document
     .getElementById("regionDropdown")
@@ -35,10 +42,7 @@ function initMap() {
     .getElementById("ssDropdown")
     .addEventListener("change", () =>
       updateMapCenter(
-        map,
-        panorama,
-        transmissionLinesLayer,
-        allTransmissionLines
+        map
       )
     );
 
@@ -76,7 +80,6 @@ async function fetchData() {
   try {
     const response = await fetch(url);
     data = await response.json();
-    console.log("Data fetched successfully:"); // Debugging step
     if (Array.isArray(data)) {
       populateRegions();
     } else {
@@ -96,8 +99,6 @@ async function fetchTransmissionLines() {
     const geoJsonData = await response.json();
     transmissionLinesLayer = new google.maps.Data();
     transmissionLinesLayer.addGeoJson(geoJsonData);
-
-    console.log("Transmission lines fetched successfully:"); // Debugging step
 
     allTransmissionLines = geoJsonData.features; // Store all transmission lines
   } catch (error) {

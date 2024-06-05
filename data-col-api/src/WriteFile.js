@@ -1,68 +1,6 @@
 import { selectedSubstation } from "./Utils";
 
-export function saveMarkersAsGeoJSON(markers) {
-  let threePhaseTransformerCount = 0;
-  let singlePhaseTransformerCount = 0;
-  let primaryPowerLineCount = 0;
-  let secondaryPowerLineCount = 0;
-  let totalTransformerCount = 0;
-
-  // Count the types of markers
-  markers.forEach((marker) => {
-    switch (marker.getLabel()) {
-      case "three_ph_transformer":
-        threePhaseTransformerCount++;
-        totalTransformerCount++;
-        break;
-      case "single_ph_transformer":
-        singlePhaseTransformerCount++;
-        totalTransformerCount++;
-        break;
-      case "primary_power_line":
-        primaryPowerLineCount++;
-        break;
-      case "sec_power_line":
-        secondaryPowerLineCount++;
-        break;
-    }
-  });
-
-  const geojson = {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        geometry: {
-          type: "MultiPoint",
-          coordinates: markers.map((marker) => [
-            marker.getPosition().lng(),
-            marker.getPosition().lat(),
-          ]),
-        },
-        properties: {
-          SS_ID: selectedSubstation.SS_ID,
-          SS_NAME: selectedSubstation.SS_NAME,
-          SS_OPERATOR: selectedSubstation.SS_OPERATOR,
-          SS_TYPE: selectedSubstation.SS_TYPE,
-          SS_VOLTAGE: selectedSubstation.SS_VOLTAGE,
-          connected_tl_id: selectedSubstation.connected_tl_id,
-          LINE_VOLTS: selectedSubstation.LINE_VOLTS,
-          REGION: selectedSubstation.REGION,
-          REGION_ID: selectedSubstation.REGION_ID,
-          threePhaseTransformerCount: threePhaseTransformerCount,
-          singlePhaseTransformerCount: singlePhaseTransformerCount,
-          primaryPowerLineCount: primaryPowerLineCount,
-          secondaryPowerLineCount: secondaryPowerLineCount,
-          totalTransformerCount: totalTransformerCount,
-          markers: markers.map((marker) => ({
-            type: marker.getLabel(),
-            color: marker.icon.fillColor,
-          })),
-        },
-      },
-    ],
-  };
-
+export function saveMarkersAsGeoJSON(geojson) {
   // Convert GeoJSON object to string
   const geojsonString = JSON.stringify(geojson, null, 2);
 
