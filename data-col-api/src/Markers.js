@@ -39,16 +39,14 @@ async function fetchMarkers(substationId) {
       markerMessage.textContent = "No markers available.";
       markerMessage.style.display = "block";
     } else {
-      created_by = markerData[0]["substation"].created_by;
-      updated_by = markerData[0]["substation"].updated_by;
+      created_by = markerData[0].created_by;
+      updated_by = markerData[0].updated_by;
       markerMessage.textContent = `Markers available. Created by: ${created_by}, Updated by: ${updated_by}`;
       markerMessage.style.display = "block";
       return markerData;
     }
   } catch (error) {
-
     markerMessage.textContent = "No markers available.";
-
   }
 }
 
