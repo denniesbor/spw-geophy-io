@@ -30,21 +30,18 @@ async function initMap() {
   fetchData();
   fetchTransmissionLines();
 
-  // Get markers  from Markers.js
-  getMarkers(map);
-
-
   // Event listeners
   document
     .getElementById("regionDropdown")
     .addEventListener("change", populateSubstations);
-  document
-    .getElementById("ssDropdown")
-    .addEventListener("change", () =>
-      updateMapCenter(
-        map
-      )
-    );
+  document.getElementById("ssDropdown").addEventListener("change", () => {
+    updateMapCenter(map);
+    // Get markers  from Markers.js
+    getMarkers(map);
+  });
+  toggleSubstationLabels.addEventListener("change", () => {
+    getMarkers(map);
+  });
 
   document
     .getElementById("toggleLines")

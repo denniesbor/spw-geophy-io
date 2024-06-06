@@ -71,7 +71,6 @@ function addMarker(ss_id, marker) {
 const toggleSubstationLabels = document.getElementById(
   "toggleSubstationLabels"
 );
-
 const markersContainer = document.getElementById("markers");
 
 // create google map marker object
@@ -126,76 +125,75 @@ function createMarker(
   addMarker(ss_id, marker);
 }
 
-export function getMarkers(map) {
-  // Listen for toggleSubstationLabels change event
-  toggleSubstationLabels.addEventListener("change", async () => {
-    substationId = selectedSubstation.SS_ID;
+export async function getMarkers(map) {
+  substationId = selectedSubstation.SS_ID;
 
-    // marke markers container visible
-    markersContainer.style.display = "flex";
+  console.log("ssDropdown changed");
 
-    if (toggleSubstationLabels.checked) {
-      // Clear existing markers for the substation
-      clearMarkers(substationId);
+  // marke markers container visible
+  markersContainer.style.display = "flex";
 
-      // Try fetching markers from the database
-      let dbMarkers = await fetchMarkers(substationId);
-      if (dbMarkers) {
-        dbMarkers.forEach((marker) => {
-          // Get the color for the marker
-          let color = markerColors[marker.label];
-          // Label
-          let label = markerLabels[marker.label];
+  if (toggleSubstationLabels.checked) {
+    // Clear existing markers for the substation
+    clearMarkers(substationId);
+    console.log("Toggled");
+    // Try fetching markers from the database
+    let dbMarkers = await fetchMarkers(substationId);
+    if (dbMarkers) {
+      dbMarkers.forEach((marker) => {
+        // Get the color for the marker
+        let color = markerColors[marker.label];
+        // Label
+        let label = markerLabels[marker.label];
 
-          let location = {
-            lat: marker.latitude,
-            lng: marker.longitude,
-          };
-          // Create a marker
-          createMarker(map, substationId, location, color, label, "red");
-        });
-
-        // Make the marker message invisible
-      }
-
-      // Add click event listener to the map for adding new markers
-      map.addListener("click", (event) => onMapClick(event, map));
-
-      // Add click event to the marker divs
-      let markerDivs = document.querySelectorAll(".marker");
-      markerDivs.forEach((div) => {
-        div.addEventListener("click", onMarkerDivClick);
+        let location = {
+          lat: marker.latitude,
+          lng: marker.longitude,
+        };
+        // Create a marker
+        createMarker(map, substationId, location, color, label, "red");
       });
 
-      // Add event listener to the disable button
-      document
-        .getElementById("disableMarkerAddingButton")
-        .addEventListener("click", disableMarkerSelection);
-
-      // Remove markers in case of a change of substation
-      document.getElementById("ssDropdown").addEventListener("change", () => {
-        clearMarkers(substationId);
-      });
-
-      // Save markers
-      document.getElementById("saveMarkers").addEventListener("click", () => {
-        saveMarkersToDatabase(
-          markersObject[substationId],
-          created_by,
-          updated_by
-        );
-      });
-    } else {
-      // Hide the markers container
-      markersContainer.style.display = "none";
-      // Clear existing markers for the substation
-      clearMarkers(substationId);
-      markerMessage.style.display = "none";
-
-      // Remove click event listener from the map
-      google.maps.event.clearListeners(map, "click");
+      // Make the marker message invisible
     }
-  });
+
+    // Add click event listener to the map for adding new markers
+    map.addListener("click", (event) => onMapClick(event, map));
+
+    // Add click event to the marker divs
+    let markerDivs = document.querySelectorAll(".marker");
+    markerDivs.forEach((div) => {
+      div.addEventListener("click", onMarkerDivClick);
+    });
+
+    // Add event listener to the disable button
+    document
+      .getElementById("disableMarkerAddingButton")
+      .addEventListener("click", disableMarkerSelection);
+
+    // Remove markers in case of a change of substation
+    document.getElementById("ssDropdown").addEventListener("change", () => {
+      clearMarkers(substationId);
+    });
+
+    // Save markers
+    document.getElementById("saveMarkers").addEventListener("click", () => {
+      saveMarkersToDatabase(
+        markersObject[substationId],
+        created_by,
+        updated_by
+      );
+    });
+  } else {
+    // Hide the markers container
+    markersContainer.style.display = "none";
+    // Clear existing markers for the substation
+    clearMarkers(substationId);
+    markerMessage.style.display = "none";
+
+    // Remove click event listener from the map
+    google.maps.event.clearListeners(map, "click");
+  }
 }
 
 // Function to handle map click event
