@@ -33,7 +33,10 @@ async function initMap() {
   // Event listeners
   document
     .getElementById("regionDropdown")
-    .addEventListener("change", populateSubstations);
+    .addEventListener("change", (event)=> {
+      populateSubstations(event),
+      getMarkers(map);
+    });
   document.getElementById("ssDropdown").addEventListener("change", () => {
     updateMapCenter(map);
     // Get markers  from Markers.js
