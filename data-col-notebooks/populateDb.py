@@ -7,6 +7,7 @@ regions = {
     "NorthGUC": "Evan",
     "CAISO": "Noah",
     "ISONE": "Noah",
+    "NYISO": "Evan",
 }
 
 # Read a geojson file with json.load()

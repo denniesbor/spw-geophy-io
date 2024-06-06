@@ -51,12 +51,10 @@ async function fetchMarkers(substationId) {
 }
 
 function addMarker(ss_id, marker) {
-  // Initialize the markers array for the substation if it doesn't exist
   if (!markersObject[ss_id]) {
     markersObject[ss_id] = [];
   }
 
-  // Push the new marker into the array associated with the ss_id key if the marker doesn't already exist
   if (
     !markersObject[ss_id].find(
       (m) =>
@@ -73,7 +71,6 @@ const toggleSubstationLabels = document.getElementById(
 );
 const markersContainer = document.getElementById("markers");
 
-// create google map marker object
 function createMarker(
   map,
   ss_id,
@@ -82,11 +79,10 @@ function createMarker(
   label,
   labelColor = "black"
 ) {
-  // Create a marker
   let marker = new google.maps.Marker({
     position: location,
     map: map,
-    draggable: true, // This allows the user to move the marker
+    draggable: true,
     icon: {
       url:
         "data:image/svg+xml;charset=UTF-8," +
@@ -99,21 +95,18 @@ function createMarker(
     },
     label: {
       text: label,
-      color: labelColor, // Set the color of the label
+      color: labelColor,
       fontSize: "18px",
     },
   });
 
-  // Add an event listener for the dragend event on the marker
   marker.addListener("dragend", function (event) {
-    // Update the location object with the new coordinates
     location.lat = event.latLng.lat();
     location.lng = event.latLng.lng();
   });
 
-  // Add an event listener for the rightclick event on the marker to remove it
   marker.addListener("rightclick", function () {
-    marker.setMap(null); // Remove the marker from the map
+    marker.setMap(null);
     markersObject[ss_id] = markersObject[ss_id].filter(
       (m) =>
         m.getPosition().lat() !== marker.getPosition().lat() ||
@@ -121,7 +114,6 @@ function createMarker(
     );
   });
 
-  // Add the marker to the array
   addMarker(ss_id, marker);
 }
 
@@ -130,53 +122,41 @@ export async function getMarkers(map) {
 
   console.log("ssDropdown changed");
 
-  // marke markers container visible
   markersContainer.style.display = "flex";
 
   if (toggleSubstationLabels.checked) {
-    // Clear existing markers for the substation
     clearMarkers(substationId);
     console.log("Toggled");
-    // Try fetching markers from the database
+
     let dbMarkers = await fetchMarkers(substationId);
     if (dbMarkers) {
       dbMarkers.forEach((marker) => {
-        // Get the color for the marker
         let color = markerColors[marker.label];
-        // Label
         let label = markerLabels[marker.label];
 
         let location = {
           lat: marker.latitude,
           lng: marker.longitude,
         };
-        // Create a marker
         createMarker(map, substationId, location, color, label, "red");
       });
-
-      // Make the marker message invisible
     }
 
-    // Add click event listener to the map for adding new markers
     map.addListener("click", (event) => onMapClick(event, map));
 
-    // Add click event to the marker divs
     let markerDivs = document.querySelectorAll(".marker");
     markerDivs.forEach((div) => {
       div.addEventListener("click", onMarkerDivClick);
     });
 
-    // Add event listener to the disable button
     document
       .getElementById("disableMarkerAddingButton")
       .addEventListener("click", disableMarkerSelection);
 
-    // Remove markers in case of a change of substation
     document.getElementById("ssDropdown").addEventListener("change", () => {
       clearMarkers(substationId);
     });
 
-    // Save markers
     document.getElementById("saveMarkers").addEventListener("click", () => {
       saveMarkersToDatabase(
         markersObject[substationId],
@@ -185,61 +165,48 @@ export async function getMarkers(map) {
       );
     });
   } else {
-    // Hide the markers container
     markersContainer.style.display = "none";
-    // Clear existing markers for the substation
     clearMarkers(substationId);
     markerMessage.style.display = "none";
 
-    // Remove click event listener from the map
     google.maps.event.clearListeners(map, "click");
   }
 }
 
-// Function to handle map click event
 function onMapClick(event, map) {
   const location = {
     lat: event.latLng.lat(),
     lng: event.latLng.lng(),
   };
 
-  // Get the selected item from the div
   let selectedItem = document.querySelector(".marker.selected");
 
   if (selectedItem) {
-    // Get the color for the selected item
     let color = markerColors[selectedItem.id];
-
-    // Label
     let label = markerLabels[selectedItem.id];
 
-    // Create a marker
-    createMarker(map, substationId, location, color, label);
+    if (!markerExists(substationId, location)) {
+      createMarker(map, substationId, location, color, label);
+    }
   }
 }
 
-// Function to handle marker div click event
 function onMarkerDivClick() {
-  // Check if the selected marker is clicked again
   if (this.classList.contains("selected")) {
-    // Disable all markers
     document.querySelectorAll(".marker").forEach((div) => {
       div.classList.add("disabled");
     });
 
-    return; // Exit the function
+    return;
   }
 
-  // Remove selected class from all divs
   document
     .querySelectorAll(".marker")
     .forEach((div) => div.classList.remove("selected"));
 
-  // Add selected class to the clicked div
   this.classList.add("selected");
 }
 
-// Function to clear markers
 function clearMarkers(substationId) {
   if (markersObject[substationId]) {
     markersObject[substationId].forEach((marker) => marker.setMap(null));
@@ -247,14 +214,20 @@ function clearMarkers(substationId) {
   }
 }
 
-// Function to disable marker selection
 function disableMarkerSelection() {
   let toggleButton = document.getElementById("disableMarkerAddingButton");
   toggleButton.textContent = "Done Adding Markers";
 
-  // Deselect the selected marker
   let selectedMarker = document.querySelector(".marker.selected");
   if (selectedMarker) {
     selectedMarker.classList.remove("selected");
   }
+}
+
+function markerExists(ss_id, location) {
+  return markersObject[ss_id]?.some(
+    (m) =>
+      m.getPosition().lat() === location.lat &&
+      m.getPosition().lng() === location.lng
+  );
 }
