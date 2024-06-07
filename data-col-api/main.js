@@ -33,9 +33,9 @@ async function initMap() {
   // Event listeners
   document
     .getElementById("regionDropdown")
-    .addEventListener("change", (event)=> {
+    .addEventListener("change", (event) => {
       populateSubstations(event),
-      getMarkers(map);
+        getMarkers(map);
     });
   document.getElementById("ssDropdown").addEventListener("change", () => {
     updateMapCenter(map);
@@ -163,6 +163,26 @@ function populateSubstations() {
 }
 
 // Function to display transmission lines connected to the selected substation
+
+// colors mapping transmission voltage class
+export const voltageColorMapping = {
+  345: "red",
+  115: "green",
+  230: "blue",
+  161: "yellow",
+  500: "purple",
+  100: "orange",
+  138: "pink",
+  765: "brown",
+  120: "cyan",
+  220: "magenta"
+}
+
+// Function to get color based on voltage
+export function getColor(voltage) {
+  return voltageColorMapping[voltage] || "black"; // default to black if no match
+}
+
 function displayTransmissionLines(
   connected_tl_id,
   transmissionLinesLayer,
@@ -176,9 +196,19 @@ function displayTransmissionLines(
   const filteredLines = allTransmissionLines.filter((line) =>
     connected_tl_id.includes(line.properties.line_id)
   );
+  console.log(filteredLines)
   transmissionLinesLayer.addGeoJson({
     type: "FeatureCollection",
     features: filteredLines,
+  });
+  // Set the style of the transmission lines based on their voltage
+  transmissionLinesLayer.setStyle((feature) => {
+    const voltage = feature.getProperty('VOLTAGE');
+    const color = getColor(voltage);
+    return {
+      strokeColor: color,
+      strokeWeight: 2
+    };
   });
   transmissionLinesLayer.setMap(map);
   return transmissionLinesLayer;
@@ -211,9 +241,8 @@ export function toggleTransmissionLines(
 // Load Google Maps API asynchronously
 function loadScript() {
   const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${
-    import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-  }&loading=async&libraries=drawing,marker&callback=initMap&v=weekly`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    }&loading=async&libraries=drawing,marker&callback=initMap&v=weekly`;
   script.async = true;
   script.defer = true;
   document.head.appendChild(script);
