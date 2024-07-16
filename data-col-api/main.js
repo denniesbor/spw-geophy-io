@@ -110,6 +110,7 @@ async function fetchTransmissionLines() {
 function populateRegions() {
   const regionDropdown = document.getElementById("regionDropdown");
   const regions = [...new Set(data.map((item) => item.REGION))];
+  console.log(regions)
   regions.forEach((region) => {
     const option = document.createElement("option");
     option.value = region;
