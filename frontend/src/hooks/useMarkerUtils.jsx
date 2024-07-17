@@ -1,10 +1,7 @@
 // utils/MarkerUtils.js
-import axios from "axios";
 import { useContext } from "react";
 import { AppContext } from "../contexts/contextAPI";
 import axiosInstance from "../services/axiosInstance";
-
-const VITE_API_URL = import.meta.env.VITE_API_URL;
 
 let markersObject = {};
 
@@ -113,21 +110,11 @@ export function useMarkerUtils() {
 
   async function fetchMarkers(substationId, setMarkerMessage) {
     try {
-      const response = await axios.get(
+      const response = await axiosInstance.get(
         `https://denniesbor.com/gis/markers/?substation=${substationId}`
       );
 
-      const response_1 = await axiosInstance.get(
-        `${VITE_API_URL}/gis/markers/?substation=${substationId}`
-      );
-
       let markerData = response.data;
-
-      if (response_1.data.length > 0) {
-        markerData = response_1.data;
-      } else {
-        markerData = response.data;
-      }
 
       if (markerData.length === 0) {
         setMarkerMessage("No markers available.");

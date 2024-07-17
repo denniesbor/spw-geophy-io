@@ -1,9 +1,8 @@
 import { saveMarkersAsGeoJSON } from "./saveFileUtils";
-import { getKeyFromValue } from "./utils";
 import { getCurrentUser, getUserDetails } from "../services/authService";
 import axiosInstance from "../services/axiosInstance";
 
-const VITE_API_URL = import.meta.env.VITE_API_URL;
+const VITE_API_URL = "https://denniesbor.com";
 
 const markerLabels = {
   three_ph_transformer: "3 Ph. Transf",
@@ -119,26 +118,6 @@ export async function saveMarkersToDatabase(
     ],
   };
 
-  // markersToSave.forEach((marker) => {
-  //   const labelKey = getKeyFromValue(markerLabels, marker.getLabel().text);
-  //   switch (labelKey) {
-  //     case "three_ph_transformer":
-  //       geojson.features[0].properties.threePhaseTransformerCount++;
-  //       geojson.features[0].properties.totalTransformerCount++;
-  //       break;
-  //     case "single_ph_transformer":
-  //       geojson.features[0].properties.singlePhaseTransformerCount++;
-  //       geojson.features[0].properties.totalTransformerCount++;
-  //       break;
-  //     case "primary_power_line":
-  //       geojson.features[0].properties.primaryPowerLineCount++;
-  //       break;
-  //     case "sec_power_line":
-  //       geojson.features[0].properties.secondaryPowerLineCount++;
-  //       break;
-  //   }
-  // });
-
   if (downloadChecked) {
     saveMarkersAsGeoJSON(geojson, selectedSubstation);
   }
@@ -160,7 +139,6 @@ export async function saveMarkersToDatabase(
         };
       }),
     };
-    print("payload", payload);
     await saveMarkers(payload);
   }
 }
