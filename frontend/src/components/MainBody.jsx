@@ -2,7 +2,6 @@ import React from "react";
 import Controls from "./Controls";
 import Map from "./Map";
 import InfoBox from "./InfoBox";
-import MarkerContainer from "./old/MarkerContainer";
 import MarkerComponent from "./MarkerComponent";
 
 const MainBody = () => {

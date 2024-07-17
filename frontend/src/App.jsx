@@ -35,8 +35,6 @@ function App() {
           <h2>Please log in to access the application</h2>
         </div>
       )}
-      {/* <MainBody />
-      <Footer /> */}
     </>
   );
 }
