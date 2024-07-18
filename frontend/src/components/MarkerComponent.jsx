@@ -93,6 +93,9 @@ const mapPrevMarkers = (prevMarker) => {
   }
 };
 
+// store updated markers
+let updatedMarkers = [];
+
 // Marker component
 const MarkerComponent = () => {
   const {
@@ -115,6 +118,8 @@ const MarkerComponent = () => {
     setPreviousSubstation,
     currentMarkerKey,
     setCurrentMarkerKey,
+    tempMarkers,
+    setTempMarkers,
   } = useContext(AppContext);
 
   const [selectedMarker, setSelectedMarker] = useState(null);
@@ -145,11 +150,25 @@ const MarkerComponent = () => {
         clearMarkers(selectedSubstation.SS_ID);
       }
     }
+    setTempMarkers(null);
+    setSelectedMarker(null);
   }, [selectedSubstation, editSubstationMarkers]);
 
+  // Use effect to handle singgle marker added
+  useEffect(() => {
+    // Effect to handle marker removal
+    return () => {
+      if (tempMarkers) {
+        tempMarkers.setMap(null);
+      }
+    };
+  }, [tempMarkers, selectedMarker]);
+
   //   Fetch and display markers
-  const fetchAndDisplayMarkers = async (substationId) => {
-    const dbMarkers = await fetchMarkers(substationId, setMarkerMessage);
+  const fetchAndDisplayMarkers = async (substationId, dbMarkers) => {
+    if (!dbMarkers) {
+      dbMarkers = await fetchMarkers(substationId, setMarkerMessage);
+    }
     if (dbMarkers) {
       // if markers of selected substaion exist, set null and remove
       if (markers[substationId]) {
@@ -178,7 +197,8 @@ const MarkerComponent = () => {
           markerRefs,
           "black",
           setCurrentMarkerKey,
-          setAllowAddMarker
+          setAllowAddMarker,
+          false
         );
       });
     }
@@ -206,10 +226,20 @@ const MarkerComponent = () => {
           markerRefs,
           "red",
           setCurrentMarkerKey,
-          setAllowAddMarker
+          setAllowAddMarker,
+          true
         );
-        // setSelectedMarker(null);
-        setMarkerMessage(`Added ${label}`);
+
+        // Add message that let's a user know that a marker has been added and is temporary unless they fill the
+        // attributes and click add marker then save to database or download
+
+        setMarkerMessage(
+          `Added ${label}. This is temporary please fill the attributes, click Add Marker button and click Save Markers to persist in a database or download.`
+        );
+
+        setTimeout(() => {
+          setMarkerMessage("");
+        }, 5000);
       }
     }
   };
@@ -297,6 +327,7 @@ const MarkerComponent = () => {
     setAllowAddMarker(valid);
   };
 
+  //   Handle input change
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setDetails((prevDetails) => ({
@@ -313,61 +344,92 @@ const MarkerComponent = () => {
     setAllowAddMarker(valid);
   };
 
+  // function to update marker click event
+  const updateMarkerClickEvent = (marker, selectedSubstation) => {
+    // Remove existing listeners
+    new google.maps.event.clearListeners(marker, "dragend");
+    new google.maps.event.clearListeners(marker, "rightclick");
+    new google.maps.event.clearListeners(marker, "click");
+
+    // Add updated listeners
+    marker.addListener("dragend", function (event) {
+      marker.position.lat = event.latLng.lat();
+      marker.position.lng = event.latLng.lng();
+    });
+
+    marker.addListener("rightclick", function () {
+      marker.setMap(null);
+      const updatedMarkers = {
+        ...markers,
+        [selectedSubstation.SS_ID]: markers[selectedSubstation.SS_ID].filter(
+          (m) =>
+            m.getPosition().lat() !== marker.getPosition().lat() ||
+            m.getPosition().lng() !== marker.getPosition().lng()
+        ),
+      };
+      setAllowAddMarker(false);
+      setMarkers(updatedMarkers);
+    });
+
+    marker.addListener("click", function () {
+      const markerLabel = marker.getLabel().text;
+      const markerDiv = markerRefs.current[markerLabel];
+      if (markerDiv) {
+        markerDiv.click();
+        setCurrentMarkerKey(marker.markerKey);
+      }
+    });
+
+    return marker;
+  };
+
+  //  Add marker
   const handleAddMarker = () => {
     setMarkerMessage(`Selected ${selectedMarker}`);
 
+    if (updatedMarkers.length !== 0) {
+      updatedMarkers.forEach((m) => m.setMap(null));
+    }
+
     if (currentMarkerKey) {
-      // Create a copy of the markers array for the selected substation
-      const updatedMarkers = markers[selectedSubstation.SS_ID].map((marker) => {
-        if (marker.markerKey === currentMarkerKey) {
-          marker.attributes = details.attributes;
+      if (tempMarkers && tempMarkers.markerKey === currentMarkerKey) {
+        // add tempMarker to markers[selectedSubstation.SS_ID]
 
-          // Remove existing listeners
-          new google.maps.event.clearListeners(marker, "dragend");
-          new google.maps.event.clearListeners(marker, "rightclick");
-          new google.maps.event.clearListeners(marker, "click");
+        const marker = updateMarkerClickEvent(tempMarkers, selectedSubstation);
+        marker.attributes = details.attributes;
 
-          // Add updated listeners
-          marker.addListener("dragend", function (event) {
-            marker.position.lat = event.latLng.lat();
-            marker.position.lng = event.latLng.lng();
-          });
+        updatedMarkers = markers[selectedSubstation.SS_ID].concat(marker);
+        setTempMarkers(null); // clear tempMarkers
+      } else {
+        // Create a copy of the markers array for the selected substation
+        updatedMarkers = markers[selectedSubstation.SS_ID].map((marker) => {
+          if (marker.markerKey === currentMarkerKey) {
+            marker.attributes = details.attributes;
 
-          marker.addListener("rightclick", function () {
-            marker.setMap(null);
-            const updatedMarkers = {
-              ...markers,
-              [selectedSubstation.SS_ID]: markers[
-                selectedSubstation.SS_ID
-              ].filter(
-                (m) =>
-                  m.getPosition().lat() !== marker.getPosition().lat() ||
-                  m.getPosition().lng() !== marker.getPosition().lng()
-              ),
-            };
-            setAllowAddMarker(false);
-            setMarkers(updatedMarkers);
-          });
+            marker = updateMarkerClickEvent(marker, selectedSubstation);
 
-          marker.addListener("click", function () {
-            const markerLabel = marker.getLabel().text;
-            const markerDiv = markerRefs.current[markerLabel];
-            if (markerDiv) {
-              markerDiv.click();
-              setCurrentMarkerKey(marker.markerKey);
-            }
-          });
-
+            return marker;
+          }
           return marker;
-        }
-        return marker;
-      });
+        });
+      }
+
+      markers[selectedSubstation.SS_ID].forEach((m) => m.setMap(null));
 
       // Update the state with the new markers array
       setMarkers((prevMarkers) => ({
         ...prevMarkers,
         [selectedSubstation.SS_ID]: updatedMarkers,
       }));
+
+      if (mapInstance) {
+        updatedMarkers.forEach((marker) => {
+          marker.setMap(mapInstance);
+        });
+      }
+
+      setSelectedMarker(null);
+      setTempMarkers(null);
     }
   };
 

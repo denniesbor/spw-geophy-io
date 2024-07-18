@@ -6,7 +6,8 @@ import axiosInstance from "../services/axiosInstance";
 let markersObject = {};
 
 export function useMarkerUtils() {
-  const { markers, setMarkers } = useContext(AppContext);
+  const { markers, setMarkers, setTempMarkers, setMarkerMessage, tempMarkers } =
+    useContext(AppContext);
 
   function addMarker(ss_id, marker) {
     if (!markersObject[ss_id]) {
@@ -25,14 +26,22 @@ export function useMarkerUtils() {
     }
   }
 
+  // Clear markers from the map and the state
   function clearMarkers(ss_id) {
     if (markersObject[ss_id]) {
       markersObject[ss_id].forEach((marker) => marker.setMap(null));
-      markersObject[ss_id] = [];
+      delete markersObject[ss_id];
       setMarkers({ ...markersObject });
+    }
+
+    if (markers[ss_id]) {
+      markers[ss_id].forEach((marker) => marker.setMap(null));
+      delete markers[ss_id];
+      setMarkers({ ...markers });
     }
   }
 
+  // Create a marker on the map
   function createMarker(
     map,
     ss_id,
@@ -43,7 +52,8 @@ export function useMarkerUtils() {
     markerRefs,
     labelColor,
     setCurrentMarkerKey,
-    setAllowAddMarker
+    setAllowAddMarker,
+    isTemp = false
   ) {
     labelColor = attributes.type ? labelColor : "red";
 
@@ -82,20 +92,6 @@ export function useMarkerUtils() {
       location.lng = event.latLng.lng();
     });
 
-    marker.addListener("rightclick", function () {
-      marker.setMap(null);
-      const updatedMarkers = {
-        ...markersObject,
-        [ss_id]: markersObject[ss_id].filter(
-          (m) =>
-            m.getPosition().lat() !== marker.getPosition().lat() ||
-            m.getPosition().lng() !== marker.getPosition().lng()
-        ),
-      };
-      setMarkers(updatedMarkers);
-      setAllowAddMarker(false);
-    });
-
     marker.addListener("click", function () {
       const markerLabel = marker.getLabel().text;
       const markerDiv = markerRefs.current[markerLabel];
@@ -104,6 +100,34 @@ export function useMarkerUtils() {
         setCurrentMarkerKey(marker.markerKey);
       }
     });
+
+    marker.addListener("rightclick", function () {
+      marker.setMap(null);
+      if (isTemp) {
+        setTempMarkers(null);
+        // set time out showing unsaved marker removed, then messahge disappears
+        setMarkerMessage("Unsaved Marker removed.");
+        setTimeout(() => {
+          setMarkerMessage("");
+        }, 1000);
+      } else {
+        const updatedMarkers = {
+          ...markersObject,
+          [ss_id]: markersObject[ss_id].filter(
+            (m) => m.markerKey !== marker.markerKey
+          ),
+        };
+        setMarkers(updatedMarkers);
+      }
+      setAllowAddMarker(false);
+    });
+
+    // If temporary marker exists, remove it to avoid duplicates or adding twice to the map
+    if (isTemp) {
+      // Set the new temporary marker
+      setTempMarkers(marker);
+      return;
+    }
 
     addMarker(ss_id, marker);
   }

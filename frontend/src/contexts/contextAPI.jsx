@@ -25,6 +25,8 @@ export const ContextProvider = ({ children }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [currentMarkerKey, setCurrentMarkerKey] = useState(null);
+  // Set temporary state for markers added to the map
+  const [tempMarkers, setTempMarkers] = useState(null);
 
   useEffect(() => {
     let url =
@@ -79,6 +81,8 @@ export const ContextProvider = ({ children }) => {
         setPassword,
         currentMarkerKey,
         setCurrentMarkerKey,
+        tempMarkers,
+        setTempMarkers,
       }}
     >
       {children}

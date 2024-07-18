@@ -8,7 +8,6 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email", "first_name", "last_name"]
 
-
 class MarkerSerializer(serializers.ModelSerializer):
     created_by = serializers.SerializerMethodField()
     updated_by = serializers.SerializerMethodField()
@@ -32,7 +31,6 @@ class MarkerSerializer(serializers.ModelSerializer):
     def get_updated_by(self, obj):
         return obj.substation.updated_by.username if obj.substation.updated_by else None
 
-
 class SubstationSerializer(serializers.ModelSerializer):
     markers = MarkerSerializer(many=True, read_only=True)
 
@@ -47,12 +45,10 @@ class SubstationSerializer(serializers.ModelSerializer):
             "markers",
         ]
 
-
 class MarkerDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = Marker
         fields = ["label", "latitude", "longitude", "attributes"]
-
 
 class BulkMarkerUpdateSerializer(serializers.Serializer):
     substation_id = serializers.IntegerField()
