@@ -400,6 +400,8 @@ const MarkerComponent = () => {
 
         updatedMarkers = markers[selectedSubstation.SS_ID].concat(marker);
         setTempMarkers(null); // clear tempMarkers
+
+        console.log("updatedMarkers", updatedMarkers.length);
       } else {
         // Create a copy of the markers array for the selected substation
         updatedMarkers = markers[selectedSubstation.SS_ID].map((marker) => {

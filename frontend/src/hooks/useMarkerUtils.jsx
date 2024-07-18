@@ -102,23 +102,40 @@ export function useMarkerUtils() {
     });
 
     marker.addListener("rightclick", function () {
+      // Remove the marker from the map
       marker.setMap(null);
+
       if (isTemp) {
+        // Handle temporary markers
         setTempMarkers(null);
-        // set time out showing unsaved marker removed, then messahge disappears
+
+        // Set a message indicating that the unsaved marker is removed
         setMarkerMessage("Unsaved Marker removed.");
         setTimeout(() => {
           setMarkerMessage("");
         }, 1000);
       } else {
+        // Handle permanent markers
+
+        // Filter out the marker being removed
         const updatedMarkers = {
           ...markersObject,
           [ss_id]: markersObject[ss_id].filter(
             (m) => m.markerKey !== marker.markerKey
           ),
         };
+
+        markersObject[ss_id] = markersObject[ss_id].filter(
+          (m) =>
+            m.getPosition().lat() !== marker.getPosition().lat() &&
+            m.getPosition().lng() !== marker.getPosition().lng()
+        );
+
+        // Update the markers state
         setMarkers(updatedMarkers);
       }
+
+      // Disable the ability to add another marker until conditions are met
       setAllowAddMarker(false);
     });
 

@@ -60,7 +60,6 @@ export async function saveMarkersToDatabase(
     }
   });
 
-  console.log("validMarkers", markers[selectedSubstation.SS_ID]);
 
   if (
     (!markers[selectedSubstation.SS_ID] ||
