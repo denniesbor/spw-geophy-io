@@ -146,7 +146,37 @@ body {
 
 .footer h3 {
   font-size: 1.2em;
-  margin: 0;
+   margin-bottom: 1em;
+}
+
+.download-data {
+  display: flex;
+  justify-content: center;
+  gap: 1em;
+}
+
+.download-data > div {
+  display: flex;
+  justify-content: center;
+}
+
+.download-data button {
+  background-color: #f1c40f;
+  border: none;
+  color: black;
+  padding: 10px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.download-data button:hover {
+  background-color: #d4ac0d;
 }
 
 .selection-rectangle {

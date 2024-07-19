@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect } from "react";
 import axios from "axios";
+import useFetchData from "../hooks/useFetchData";
 
 export const AppContext = createContext();
 
@@ -27,19 +28,46 @@ export const ContextProvider = ({ children }) => {
   const [currentMarkerKey, setCurrentMarkerKey] = useState(null);
   // Set temporary state for markers added to the map
   const [tempMarkers, setTempMarkers] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+    const dataUrl =
+      "https://gist.githubusercontent.com/denniesbor/81dfc2b05d3c7ee0f02dfc20ec15dce8/raw/a9c6c3b0f9fdc604d4884ded950b1d5035c90e22/tm_ss_df_gt_300v.json";
+    const transmissionLinesUrl =
+      "https://gist.githubusercontent.com/denniesbor/f55327cd9a7ba2c7da2725c5b03b17f0/raw/ece03a294a758201597da9c80a50759726425b09/tm_lines_within_ferc.geojson";
+
+    useFetchData(dataUrl, setData);
+    useFetchData(transmissionLinesUrl, setAllTransmissionLines);
+
+  const sub_data_url =
+    "https://gist.githubusercontent.com/denniesbor/81dfc2b05d3c7ee0f02dfc20ec15dce8/raw/a9c6c3b0f9fdc604d4884ded950b1d5035c90e22/tm_ss_df_gt_300v.json";
 
   useEffect(() => {
-    let url =
-      "https://gist.githubusercontent.com/denniesbor/81dfc2b05d3c7ee0f02dfc20ec15dce8/raw/a9c6c3b0f9fdc604d4884ded950b1d5035c90e22/tm_ss_df_gt_300v.json";
-    axios.get(url).then((response) => {
-      setData(response.data);
-      setLoading(false);
-    });
+    const fetchData = async () => {
+      try {
+        const url = sub_data_url;
+        const response = await axios.get(url);
+        setData(response.data);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const checkLoginStatus = () => {
+      const token = JSON.parse(localStorage.getItem("user"))?.access;
+      setIsLoggedIn(!!token);
+    };
+
+    fetchData();
+    checkLoginStatus();
   }, []);
 
   return (
     <AppContext.Provider
       value={{
+        dataUrl,
+        transmissionLinesUrl,
         data,
         setData,
         loading,
@@ -83,6 +111,7 @@ export const ContextProvider = ({ children }) => {
         setCurrentMarkerKey,
         tempMarkers,
         setTempMarkers,
+        isLoggedIn,
       }}
     >
       {children}
