@@ -8,8 +8,8 @@ import { saveMarkersToDatabase } from "../utils/persistMarkers";
 const markerData = {
   Transformer: {
     type: ["Single Phase", "Three Phase"],
-    role: ["Distribution", "Transmission"],
-    transformer_fuel_type: ["Oil", "Dry", "Gas"],
+    role: ["Generation", "Transmission"],
+    insulative: ["Oil", "Dry", "Gas"],
   },
   "Circuit Breaker": {
     type: ["type1", "type2", "type3", "type4", "type5"],
