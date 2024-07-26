@@ -27,16 +27,16 @@ export const ContextProvider = ({ children }) => {
   const [password, setPassword] = useState("");
   const [currentMarkerKey, setCurrentMarkerKey] = useState(null);
   // Set temporary state for markers added to the map
-  const [tempMarkers, setTempMarkers] = useState(null);
+  const [tempMarkers, setTempMarkers] = useState([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-    const dataUrl =
-      "https://gist.githubusercontent.com/denniesbor/81dfc2b05d3c7ee0f02dfc20ec15dce8/raw/a9c6c3b0f9fdc604d4884ded950b1d5035c90e22/tm_ss_df_gt_300v.json";
-    const transmissionLinesUrl =
-      "https://gist.githubusercontent.com/denniesbor/f55327cd9a7ba2c7da2725c5b03b17f0/raw/ece03a294a758201597da9c80a50759726425b09/tm_lines_within_ferc.geojson";
+  const dataUrl =
+    "https://gist.githubusercontent.com/denniesbor/81dfc2b05d3c7ee0f02dfc20ec15dce8/raw/a9c6c3b0f9fdc604d4884ded950b1d5035c90e22/tm_ss_df_gt_300v.json";
+  const transmissionLinesUrl =
+    "https://gist.githubusercontent.com/denniesbor/f55327cd9a7ba2c7da2725c5b03b17f0/raw/ece03a294a758201597da9c80a50759726425b09/tm_lines_within_ferc.geojson";
 
-    useFetchData(dataUrl, setData);
-    useFetchData(transmissionLinesUrl, setAllTransmissionLines);
+  useFetchData(dataUrl, setData);
+  useFetchData(transmissionLinesUrl, setAllTransmissionLines);
 
   const sub_data_url =
     "https://gist.githubusercontent.com/denniesbor/81dfc2b05d3c7ee0f02dfc20ec15dce8/raw/a9c6c3b0f9fdc604d4884ded950b1d5035c90e22/tm_ss_df_gt_300v.json";

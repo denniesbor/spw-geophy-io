@@ -93,7 +93,7 @@ const mapPrevMarkers = (prevMarker) => {
   }
 };
 
-// store updated markers
+// Store updated markers
 let updatedMarkers = [];
 
 // Marker component
@@ -150,7 +150,7 @@ const MarkerComponent = () => {
         clearMarkers(selectedSubstation.SS_ID);
       }
     }
-    setTempMarkers(null);
+    setTempMarkers([]);
     setSelectedMarker(null);
   }, [selectedSubstation, editSubstationMarkers]);
 
@@ -158,7 +158,7 @@ const MarkerComponent = () => {
   useEffect(() => {
     // Effect to handle marker removal
     return () => {
-      if (tempMarkers) {
+      if (tempMarkers.length > 0) {
         tempMarkers.setMap(null);
       }
     };
@@ -284,6 +284,12 @@ const MarkerComponent = () => {
     );
     setOverlayVisible(false);
     setMarkerMessage("Markers saved successfully!");
+
+    // Clear markers
+    clearMarkers(selectedSubstation.SS_ID);
+
+    // refetch and populate markers
+    fetchAndDisplayMarkers(selectedSubstation.SS_ID);
   };
 
   //   Cancel save
@@ -394,14 +400,14 @@ const MarkerComponent = () => {
     if (currentMarkerKey) {
       if (tempMarkers && tempMarkers.markerKey === currentMarkerKey) {
         // add tempMarker to markers[selectedSubstation.SS_ID]
-
         const marker = updateMarkerClickEvent(tempMarkers, selectedSubstation);
         marker.attributes = details.attributes;
 
-        updatedMarkers = markers[selectedSubstation.SS_ID].concat(marker);
-        setTempMarkers(null); // clear tempMarkers
+        updatedMarkers = markers[selectedSubstation.SS_ID]
+          ? [...markers[selectedSubstation.SS_ID], marker]
+          : [marker];
 
-        console.log("updatedMarkers", updatedMarkers.length);
+        setTempMarkers([]); // clear tempMarkers
       } else {
         // Create a copy of the markers array for the selected substation
         updatedMarkers = markers[selectedSubstation.SS_ID].map((marker) => {
@@ -416,7 +422,16 @@ const MarkerComponent = () => {
         });
       }
 
-      markers[selectedSubstation.SS_ID].forEach((m) => m.setMap(null));
+      // markers[selectedSubstation.SS_ID].forEach((m) => m.setMap(null));
+      if (markers[selectedSubstation.SS_ID]) {
+        markers[selectedSubstation.SS_ID].forEach((m) => {
+          if (m && typeof m.setMap === "function") {
+            m.setMap(null);
+          } else {
+            console.error("Invalid marker or setMap function missing:", m);
+          }
+        });
+      }
 
       // Update the state with the new markers array
       setMarkers((prevMarkers) => ({
@@ -431,7 +446,9 @@ const MarkerComponent = () => {
       }
 
       setSelectedMarker(null);
-      setTempMarkers(null);
+      setTempMarkers([]);
+
+      // fetchAndDisplayMarkers(selectedSubstation.SS_ID, updatedMarkers);
     }
   };
 
@@ -536,6 +553,12 @@ const MarkerComponent = () => {
     );
   };
 
+  const isSaveButtonDisabled =
+    !selectedSubstation ||
+    !selectedSubstation.SS_ID ||
+    !markers[selectedSubstation.SS_ID] ||
+    markers[selectedSubstation.SS_ID].length === 0;
+
   return (
     <div className="marker-component">
       <div className="marker-container">
@@ -561,7 +584,11 @@ const MarkerComponent = () => {
           >
             Done Adding Markers
           </button>
-          <button onClick={handleSaveMarkers} id="saveMarkers">
+          <button
+            onClick={handleSaveMarkers}
+            id="saveMarkers"
+            disabled={isSaveButtonDisabled}
+          >
             Save Markers
           </button>
         </div>

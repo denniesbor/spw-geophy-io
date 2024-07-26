@@ -6,7 +6,7 @@ import axiosInstance from "../services/axiosInstance";
 let markersObject = {};
 
 export function useMarkerUtils() {
-  const { markers, setMarkers, setTempMarkers, setMarkerMessage, tempMarkers } =
+  const { markers, setMarkers, setTempMarkers, setMarkerMessage } =
     useContext(AppContext);
 
   function addMarker(ss_id, marker) {
