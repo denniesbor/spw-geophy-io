@@ -3,6 +3,7 @@ import { AppContext } from "../contexts/contextAPI";
 import SavePopup from "./SavePopup";
 import { useMarkerUtils } from "../hooks/useMarkerUtils";
 import { saveMarkersToDatabase } from "../utils/persistMarkers";
+import RenderOptions from "./RenderOptions";
 
 // Marker data
 const markerData = {
@@ -127,6 +128,11 @@ const MarkerComponent = () => {
   const [mapClickListener, setMapClickListener] = useState(null);
   const markerRefs = useRef({});
   const [allowAddMarker, setAllowAddMarker] = useState(false); // Add state for allowing marker adding
+  // Close edit marker details
+  const [isVisible, setIsVisible] = useState(true);
+
+  const closeDetails = () => setIsVisible(false);
+
 
   //   Marker component functions
   const { clearMarkers, createMarker, fetchMarkers } = useMarkerUtils();
@@ -299,6 +305,8 @@ const MarkerComponent = () => {
 
   //   Handle marker click
   const handleMarkerClick = (marker) => {
+
+    setIsVisible(true);
     // Reset the marker key
     setCurrentMarkerKey(null);
 
@@ -467,92 +475,6 @@ const MarkerComponent = () => {
     }
   }, [mapInstance, selectedMarker, editSubstationMarkers, allowAddMarker]);
 
-  const renderOptions = () => {
-    if (!selectedMarker || !editSubstationMarkers) return <></>;
-
-    if (selectedMarker === "Other") {
-      return (
-        <div className="marker-options">
-          <h2>{selectedMarker}</h2>
-          <input
-            type="text"
-            name="name"
-            placeholder="Name"
-            value={details.name || ""}
-            onChange={handleInputChange}
-            required
-          />
-          <input
-            type="text"
-            name="type"
-            placeholder="Type"
-            value={details.type || ""}
-            onChange={handleInputChange}
-          />
-          <textarea
-            name="description"
-            placeholder="Description"
-            value={details.description || ""}
-            onChange={handleInputChange}
-          ></textarea>
-          <button
-            onClick={handleAddMarker}
-            disabled={!allowAddMarker || !currentMarkerKey}
-            className="markers-btn"
-          >
-            Add Marker
-          </button>
-        </div>
-      );
-    }
-
-    const options = markerData[selectedMarker];
-    let attributes = {};
-
-    if (markers && markers[selectedSubstation.SS_ID]) {
-      attributes =
-        markers[selectedSubstation.SS_ID].find(
-          (m) => m.markerKey === currentMarkerKey
-        )?.attributes || {};
-    }
-
-    return (
-      <div className="marker-options">
-        <h2>{selectedMarker}</h2>
-        {Object.keys(options).map((option) => (
-          <div key={option}>
-            <label>
-              {`${option} ${
-                attributes && attributes[option]
-                  ? `assigned: ${attributes[option]}`
-                  : ""
-              }`}
-            </label>
-
-            <select
-              value={details.attributes[option] || attributes[option] || ""}
-              onChange={(e) => handleOptionChange(e, option)}
-            >
-              <option value="">Select {option}</option>
-              {options[option].map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
-        <button
-          disabled={!allowAddMarker || !currentMarkerKey}
-          className="markers-btn"
-          onClick={handleAddMarker}
-        >
-          Add Marker
-        </button>
-      </div>
-    );
-  };
-
   const isSaveButtonDisabled =
     !selectedSubstation ||
     !selectedSubstation.SS_ID ||
@@ -592,8 +514,25 @@ const MarkerComponent = () => {
             Save Markers
           </button>
         </div>
-        {selectedMarker && (
-          <div className="marker-details">{renderOptions()}</div>
+        {selectedMarker && isVisible && (
+          <div className="marker-details">
+            <button className="close-btn" onClick={closeDetails}>
+              <i className="fas fa-times"></i>
+            </button>
+            <RenderOptions
+              selectedMarker={selectedMarker}
+              editSubstationMarkers={editSubstationMarkers}
+              details={details}
+              handleInputChange={handleInputChange}
+              handleOptionChange={handleOptionChange}
+              handleAddMarker={handleAddMarker}
+              allowAddMarker={allowAddMarker}
+              currentMarkerKey={currentMarkerKey}
+              markerData={markerData}
+              markers={markers}
+              selectedSubstation={selectedSubstation}
+            />
+          </div>
         )}
       </div>
 

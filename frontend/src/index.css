@@ -427,13 +427,22 @@ button:disabled {
 }
 
 .marker-details {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 300px;
   padding: 20px;
+  background-color: #fff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   border: 1px solid #ccc;
-  border-radius: 5px;
+  border-radius: 8px;
+  z-index: 1000;
 }
 
 .marker-details h2 {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
 }
 
 .marker-details div {
@@ -443,18 +452,46 @@ button:disabled {
 .marker-details label {
   display: block;
   margin-bottom: 5px;
+  font-weight: bold;
 }
 
 .marker-details select,
 .marker-details input,
 .marker-details textarea {
   display: block;
-  width: 100%;
-  padding: 10px;
+  width: calc(100% - 20px);
+  padding: 8px;
   border: 1px solid #ccc;
   border-radius: 5px;
   margin-bottom: 10px;
   font-size: 0.85rem;
+}
+
+.marker-details button.markers-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.marker-details button.markers-btn:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+
+.marker-details .close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #000;
 }
 
 /* Markjer component and map */
