@@ -61,6 +61,15 @@ function RenderOptions({
       )?.attributes || {};
   }
 
+  const getMarkerMessage = () => {
+    if (!allowAddMarker && !currentMarkerKey) {
+      return "Please select asset characteristics to enable labeling.";
+    } else if (allowAddMarker && currentMarkerKey) {
+      return "Please click 'Save Markers' to persist your labels";
+    }
+    return ""; // In case of any unexpected state
+  };
+
   return (
     <div className="marker-options">
       <h2>{selectedMarker}</h2>
@@ -87,13 +96,20 @@ function RenderOptions({
           </select>
         </div>
       ))}
-      <button
+      {/* <button
         disabled={!allowAddMarker || !currentMarkerKey}
         className="markers-btn"
         onClick={handleAddMarker}
       >
         Add Marker
-      </button>
+      </button> */}
+      <p
+        className={`marker-message ${
+          !allowAddMarker && !currentMarkerKey ? "warning" : "info"
+        }`}
+      >
+        {getMarkerMessage()}
+      </p>
     </div>
   );
 }
