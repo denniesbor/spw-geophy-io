@@ -130,15 +130,31 @@ const MarkerComponent = () => {
   const [allowAddMarker, setAllowAddMarker] = useState(false); // Add state for allowing marker adding
   // Close edit marker details
   const [isVisible, setIsVisible] = useState(true);
+  const [markerAdded, setMarkerAdded] = useState(false);
 
-  const closeDetails = () => setIsVisible(false);
+  const closeDetails = () => {
+    setIsVisible(false);
+    setSelectedMarker(null);
+    setAllowAddMarker(false);
+    setDetails({ name: "", attributes: {} }); // Reset details
+  };
 
+  // If current key useffect hook to  update markers
+  useEffect(() => {
+    if (markerAdded && currentMarkerKey) {
+      handleAddMarker();
+      setMarkerAdded(false); // Reset the flag
+    }
+  }, [markerAdded, currentMarkerKey]);
 
   //   Marker component functions
   const { clearMarkers, createMarker, fetchMarkers } = useMarkerUtils();
 
-  //  fetch and display markers
+  //  Fetch and display markers
   useEffect(() => {
+    // close details
+    closeDetails();
+
     if (selectedSubstation && editSubstationMarkers) {
       setPreviousSubstation((prev) => {
         if (prev && prev.SS_ID !== selectedSubstation.SS_ID) {
@@ -212,7 +228,22 @@ const MarkerComponent = () => {
 
   //   On map click
   const onMapClick = (event) => {
-    if (selectedMarker && editSubstationMarkers) {
+    console.log("Map clicked");
+    console.log(
+      "selectedMarker",
+      selectedMarker,
+      "allowAddMarker",
+      allowAddMarker,
+      "currentMarkerKey",
+      currentMarkerKey
+    );
+
+    if (
+      selectedMarker &&
+      editSubstationMarkers &&
+      allowAddMarker &&
+      mapInstance
+    ) {
       const location = {
         lat: event.latLng.lat(),
         lng: event.latLng.lng(),
@@ -240,12 +271,14 @@ const MarkerComponent = () => {
         // attributes and click add marker then save to database or download
 
         setMarkerMessage(
-          `Added ${label}. This is temporary please fill the attributes, click Add Marker button and click Save Markers to persist in a database or download.`
+          `Added ${label}. This is temporary. Click save markers to persist in a databaase or download.`
         );
 
         setTimeout(() => {
           setMarkerMessage("");
         }, 5000);
+
+        setMarkerAdded(true);
       }
     }
   };
@@ -279,7 +312,7 @@ const MarkerComponent = () => {
     }
   };
 
-  //   Confirm save
+  // Confirm save
   const handleConfirmSave = async () => {
     await saveMarkersToDatabase(
       markers,
@@ -294,7 +327,7 @@ const MarkerComponent = () => {
     // Clear markers
     clearMarkers(selectedSubstation.SS_ID);
 
-    // refetch and populate markers
+    // Refetch and populate markers
     fetchAndDisplayMarkers(selectedSubstation.SS_ID);
   };
 
@@ -305,7 +338,6 @@ const MarkerComponent = () => {
 
   //   Handle marker click
   const handleMarkerClick = (marker) => {
-
     setIsVisible(true);
     // Reset the marker key
     setCurrentMarkerKey(null);
@@ -399,6 +431,9 @@ const MarkerComponent = () => {
 
   //  Add marker
   const handleAddMarker = () => {
+    console.log("Adding marker");
+    console.log("current key", currentMarkerKey);
+
     setMarkerMessage(`Selected ${selectedMarker}`);
 
     if (updatedMarkers.length !== 0) {
@@ -453,7 +488,7 @@ const MarkerComponent = () => {
         });
       }
 
-      setSelectedMarker(null);
+      // setSelectedMarker(null);
       setTempMarkers([]);
 
       // fetchAndDisplayMarkers(selectedSubstation.SS_ID, updatedMarkers);
@@ -514,7 +549,7 @@ const MarkerComponent = () => {
             Save Markers
           </button>
         </div>
-        {selectedMarker && isVisible && (
+        {isVisible && (
           <div className="marker-details">
             <button className="close-btn" onClick={closeDetails}>
               <i className="fas fa-times"></i>
