@@ -97,6 +97,10 @@ const Controls = () => {
         currentMarkers,
         setCurrentMarkers
       );
+      updateURL({
+        region: selectedRegion,
+        substationid: selectedSubstation.SS_ID,
+      });
     }
   };
 
@@ -118,6 +122,8 @@ const Controls = () => {
 
   const handleSubstationChange = (event) => {
     const selectedSubstation = JSON.parse(event.target.value);
+
+    console.log("selectedSubstation", selectedSubstation);
     setSelectedSubstation(selectedSubstation);
     updateMapCenter(
       mapInstance,
