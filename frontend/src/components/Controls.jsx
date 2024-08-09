@@ -22,14 +22,31 @@ const Controls = () => {
     setToggleLinesChecked,
   } = useContext(AppContext);
 
-  useEffect(() => {
-    if (data) {
-      populateRegions();
-    }
-  }, [data]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const populateRegions = () => {
+  useEffect(() => {
+    if (data && !isInitialized) {
+      initializeFromURL();
+      setIsInitialized(true);
+    }
+  }, [data, isInitialized]);
+
+  const initializeFromURL = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const regionParam = urlParams.get("region");
+    const substationIdParam = urlParams.get("substationid");
+
+    populateRegions(regionParam);
+
+    if (regionParam) {
+      setSelectedRegion(regionParam);
+      populateSubstations(regionParam, substationIdParam);
+    }
+  };
+
+  const populateRegions = (defaultRegion = null) => {
     const regionDropdown = document.getElementById("regionDropdown");
+    regionDropdown.innerHTML = ""; // Clear existing options
     const regions = [...new Set(data.map((item) => item.REGION))];
     regions.forEach((region) => {
       const option = document.createElement("option");
@@ -38,14 +55,14 @@ const Controls = () => {
       regionDropdown.add(option);
     });
 
-    // Set default region to 'PJM' if it exists, otherwise set to the first available region
-    const defaultRegion = regions.includes("PJM") ? "PJM" : regions[0];
-    regionDropdown.value = defaultRegion;
-    setSelectedRegion(defaultRegion);
-    populateSubstations(defaultRegion);
+    // Set default region to the URL param, 'PJM' if it exists, or the first available region
+    const selectedRegion =
+      defaultRegion || (regions.includes("PJM") ? "PJM" : regions[0]);
+    regionDropdown.value = selectedRegion;
+    setSelectedRegion(selectedRegion);
   };
 
-  const populateSubstations = (selectedRegion) => {
+  const populateSubstations = (selectedRegion, defaultSubstationId = null) => {
     const ssDropdown = document.getElementById("ssDropdown");
     ssDropdown.innerHTML = "";
 
@@ -53,40 +70,50 @@ const Controls = () => {
 
     substations.forEach((substation, index) => {
       const option = document.createElement("option");
-      option.value = JSON.stringify({
-        lat: substation.lat,
-        lon: substation.lon,
-        SS_ID: substation.SS_ID,
-        SS_NAME: substation.SS_NAME,
-        SS_OPERATOR: substation.SS_OPERATOR,
-        SS_VOLTAGE: substation.SS_VOLTAGE,
-        SS_TYPE: substation.SS_TYPE,
-        REGION_ID: substation.REGION_ID,
-        REGION: substation.REGION,
-        connected_tl_id: substation.connected_tl_id,
-        LINE_VOLTS: substation.LINE_VOLTS,
-      });
-
+      option.value = JSON.stringify(substation);
       option.text = `${index + 1}) ${substation.SS_ID}`;
       ssDropdown.add(option);
     });
 
-    if (substations.length > 0) {
-      const firstSubstation = JSON.parse(ssDropdown.options[0].value);
-      setSelectedSubstation(firstSubstation);
+    let selectedSubstation;
+    if (defaultSubstationId) {
+      selectedSubstation = substations.find(
+        (s) => s.SS_ID === defaultSubstationId
+      );
+      if (selectedSubstation) {
+        ssDropdown.value = JSON.stringify(selectedSubstation);
+      }
+    }
+
+    if (!selectedSubstation && substations.length > 0) {
+      selectedSubstation = substations[0];
+    }
+
+    if (selectedSubstation) {
+      setSelectedSubstation(selectedSubstation);
       updateMapCenter(
         mapInstance,
-        firstSubstation,
+        selectedSubstation,
         currentMarkers,
         setCurrentMarkers
       );
     }
   };
 
+  const updateURL = (params) => {
+    const searchParams = new URLSearchParams(window.location.search);
+    Object.entries(params).forEach(([key, value]) => {
+      searchParams.set(key, value);
+    });
+    const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
+    window.history.pushState({ path: newUrl }, "", newUrl);
+  };
+
   const handleRegionChange = (event) => {
     const selectedRegion = event.target.value;
     setSelectedRegion(selectedRegion);
     populateSubstations(selectedRegion);
+    updateURL({ region: selectedRegion });
   };
 
   const handleSubstationChange = (event) => {
@@ -108,6 +135,10 @@ const Controls = () => {
         setTransmissionLinesLayer
       );
     }
+    updateURL({
+      region: selectedRegion,
+      substationid: selectedSubstation.SS_ID,
+    });
   };
 
   const handleToggleLines = (event) => {
