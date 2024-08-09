@@ -4,7 +4,19 @@ import { updateMapCenter } from "../utils/updateMapCenter";
 // import { getMarkers } from "../utils/getMarkers";
 import { toggleTransmissionLines } from "../utils/toggleTransmissionLines";
 
+/**
+ * Controls component that handles the selection and interaction of regions, substations, and toggling of transmission lines.
+ *
+ * @component
+ * @returns {JSX.Element} Controls component.
+ */
+/**
+ * Controls component that handles the user interface for selecting regions, substations, and toggling options.
+ */
 const Controls = () => {
+  /**
+   * Destructuring the required values from the AppContext.
+   */
   const {
     data,
     mapInstance,
@@ -22,8 +34,14 @@ const Controls = () => {
     setToggleLinesChecked,
   } = useContext(AppContext);
 
+  /**
+   * State to track if the component has been initialized.
+   */
   const [isInitialized, setIsInitialized] = useState(false);
 
+  /**
+   * useEffect hook to initialize the component when data is available and it hasn't been initialized yet.
+   */
   useEffect(() => {
     if (data && !isInitialized) {
       initializeFromURL();
@@ -31,20 +49,46 @@ const Controls = () => {
     }
   }, [data, isInitialized]);
 
+  /**
+   * Updates the URL with the provided parameters.
+   *
+   * @param {Object} params - The parameters to update the URL with.
+   */
+  const updateURL = (params) => {
+    const searchParams = new URLSearchParams(window.location.search);
+    Object.entries(params).forEach(([key, value]) => {
+      searchParams.set(key, value);
+    });
+    const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
+    window.history.pushState({ path: newUrl }, "", newUrl);
+  };
+
+  /**
+   * Initializes the component based on the URL parameters.
+   */
   const initializeFromURL = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const regionParam = urlParams.get("region");
     const substationIdParam = urlParams.get("substationid");
 
-    populateRegions(regionParam);
-
     if (regionParam) {
       setSelectedRegion(regionParam);
-      populateSubstations(regionParam, substationIdParam);
+      populateRegions(regionParam, substationIdParam);
+    } else {
+      populateRegions(null, substationIdParam);
     }
   };
 
-  const populateRegions = (defaultRegion = null) => {
+  /**
+   * Populates the regions dropdown based on the data.
+   *
+   * @param {string} defaultRegion - The default region to select.
+   * @param {string} defaultSubstationId - The default substation ID to select.
+   */
+  const populateRegions = (
+    defaultRegion = null,
+    defaultSubstationId = null
+  ) => {
     const regionDropdown = document.getElementById("regionDropdown");
     regionDropdown.innerHTML = ""; // Clear existing options
     const regions = [...new Set(data.map((item) => item.REGION))];
@@ -60,8 +104,16 @@ const Controls = () => {
       defaultRegion || (regions.includes("PJM") ? "PJM" : regions[0]);
     regionDropdown.value = selectedRegion;
     setSelectedRegion(selectedRegion);
+
+    populateSubstations(selectedRegion, defaultSubstationId);
   };
 
+  /**
+   * Populates the substations dropdown based on the selected region.
+   *
+   * @param {string} selectedRegion - The selected region.
+   * @param {string} defaultSubstationId - The default substation ID to select.
+   */
   const populateSubstations = (selectedRegion, defaultSubstationId = null) => {
     const ssDropdown = document.getElementById("ssDropdown");
     ssDropdown.innerHTML = "";
@@ -75,11 +127,14 @@ const Controls = () => {
       ssDropdown.add(option);
     });
 
+    // Convert to number if defaultSubstationId is a string
+    const convertedId = isNaN(Number(defaultSubstationId))
+      ? defaultSubstationId
+      : Number(defaultSubstationId);
+
     let selectedSubstation;
     if (defaultSubstationId) {
-      selectedSubstation = substations.find(
-        (s) => s.SS_ID === defaultSubstationId
-      );
+      selectedSubstation = substations.find((s) => s.SS_ID === convertedId);
       if (selectedSubstation) {
         ssDropdown.value = JSON.stringify(selectedSubstation);
       }
@@ -104,15 +159,11 @@ const Controls = () => {
     }
   };
 
-  const updateURL = (params) => {
-    const searchParams = new URLSearchParams(window.location.search);
-    Object.entries(params).forEach(([key, value]) => {
-      searchParams.set(key, value);
-    });
-    const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
-    window.history.pushState({ path: newUrl }, "", newUrl);
-  };
-
+  /**
+   * Event handler for region dropdown change.
+   *
+   * @param {Event} event - The change event.
+   */
   const handleRegionChange = (event) => {
     const selectedRegion = event.target.value;
     setSelectedRegion(selectedRegion);
@@ -120,10 +171,13 @@ const Controls = () => {
     updateURL({ region: selectedRegion });
   };
 
+  /**
+   * Event handler for substation dropdown change.
+   *
+   * @param {Event} event - The change event.
+   */
   const handleSubstationChange = (event) => {
     const selectedSubstation = JSON.parse(event.target.value);
-
-    console.log("selectedSubstation", selectedSubstation);
     setSelectedSubstation(selectedSubstation);
     updateMapCenter(
       mapInstance,
@@ -147,6 +201,11 @@ const Controls = () => {
     });
   };
 
+  /**
+   * Event handler for toggle lines checkbox change.
+   *
+   * @param {Event} event - The change event.
+   */
   const handleToggleLines = (event) => {
     const isChecked = event.target.checked;
     setToggleLinesChecked(isChecked);
@@ -160,6 +219,11 @@ const Controls = () => {
     );
   };
 
+  /**
+   * Event handler for toggle substation labels checkbox change.
+   *
+   * @param {Event} event - The change event.
+   */
   const handleToggleSubstationLabels = (event) => {
     if (event.target.checked === true) {
       setEditSubstationMarkers(true);

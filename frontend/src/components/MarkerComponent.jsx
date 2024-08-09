@@ -45,7 +45,7 @@ const markerColors = {
   Other: "red",
 };
 
-//   Map previous markers to new markers
+// Map previous markers to new markers
 const mapPrevMarkers = (prevMarker) => {
   if (prevMarker === "three_ph_transformer") {
     return {
@@ -98,7 +98,18 @@ const mapPrevMarkers = (prevMarker) => {
 let updatedMarkers = [];
 
 // Marker component
+/**
+ * MarkerComponent is a React component that handles the management and display of markers on a map.
+ * It uses the AppContext to access the necessary state and functions for marker manipulation.
+ *
+ * @component
+ * @example
+ * return (
+ *   <MarkerComponent />
+ * )
+ */
 const MarkerComponent = () => {
+  // Accessing state and functions from AppContext
   const {
     mapInstance,
     selectedSubstation,
@@ -123,15 +134,16 @@ const MarkerComponent = () => {
     setTempMarkers,
   } = useContext(AppContext);
 
+  // State variables
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [details, setDetails] = useState({ name: "", attributes: {} });
   const [mapClickListener, setMapClickListener] = useState(null);
   const markerRefs = useRef({});
   const [allowAddMarker, setAllowAddMarker] = useState(false); // Add state for allowing marker adding
-  // Close edit marker details
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(true); // Close edit marker details
   const [markerAdded, setMarkerAdded] = useState(false);
 
+  // Close marker details
   const closeDetails = () => {
     setIsVisible(false);
     setSelectedMarker(null);
@@ -139,7 +151,7 @@ const MarkerComponent = () => {
     setDetails({ name: "", attributes: {} }); // Reset details
   };
 
-  // If current key useffect hook to  update markers
+  // Handle marker addition when currentMarkerKey changes
   useEffect(() => {
     if (markerAdded && currentMarkerKey) {
       handleAddMarker();
@@ -147,12 +159,12 @@ const MarkerComponent = () => {
     }
   }, [markerAdded, currentMarkerKey]);
 
-  //   Marker component functions
+  // Marker utility functions
   const { clearMarkers, createMarker, fetchMarkers } = useMarkerUtils();
 
-  //  Fetch and display markers
+  // Fetch and display markers
   useEffect(() => {
-    // close details
+    // Close marker details
     closeDetails();
 
     if (selectedSubstation && editSubstationMarkers) {
@@ -176,7 +188,7 @@ const MarkerComponent = () => {
     setSelectedMarker(null);
   }, [selectedSubstation, editSubstationMarkers]);
 
-  // Use effect to handle singgle marker added
+  // Handle single marker added
   useEffect(() => {
     // Effect to handle marker removal
     return () => {
@@ -186,13 +198,13 @@ const MarkerComponent = () => {
     };
   }, [tempMarkers, selectedMarker]);
 
-  //   Fetch and display markers
+  // Fetch and display markers
   const fetchAndDisplayMarkers = async (substationId, dbMarkers) => {
     if (!dbMarkers) {
       dbMarkers = await fetchMarkers(substationId, setMarkerMessage);
     }
     if (dbMarkers) {
-      // if markers of selected substaion exist, set null and remove
+      // If markers of selected substation exist, set null and remove
       if (markers[substationId]) {
         markers[substationId].forEach((m) => {
           m.setMap(null);
@@ -226,18 +238,8 @@ const MarkerComponent = () => {
     }
   };
 
-  //   On map click
+  // Handle map click event
   const onMapClick = (event) => {
-    console.log("Map clicked");
-    console.log(
-      "selectedMarker",
-      selectedMarker,
-      "allowAddMarker",
-      allowAddMarker,
-      "currentMarkerKey",
-      currentMarkerKey
-    );
-
     if (
       selectedMarker &&
       editSubstationMarkers &&
@@ -267,11 +269,11 @@ const MarkerComponent = () => {
           true
         );
 
-        // Add message that let's a user know that a marker has been added and is temporary unless they fill the
+        // Add message that lets a user know that a marker has been added and is temporary unless they fill the
         // attributes and click add marker then save to database or download
 
         setMarkerMessage(
-          `Added ${label}. This is temporary. Click save markers to persist in a databaase or download.`
+          `Added ${label}. This is temporary. Click save markers to persist in a database or download.`
         );
 
         setTimeout(() => {
@@ -283,7 +285,7 @@ const MarkerComponent = () => {
     }
   };
 
-  //   Marker exists
+  // Check if marker exists at the given location
   const markerExists = (ss_id, location) => {
     return (
       markers[ss_id] &&
@@ -295,13 +297,13 @@ const MarkerComponent = () => {
     );
   };
 
-  //   Disable marker adding
+  // Disable marker adding
   const handleDisableMarkerAdding = () => {
     setMarkerMessage("Marker adding disabled.");
     setSelectedMarker(null);
   };
 
-  //   Save markers
+  // Save markers
   const handleSaveMarkers = () => {
     if (markers.length === 0 && !allowEmptyChecked) {
       setMarkerMessage(
@@ -331,12 +333,12 @@ const MarkerComponent = () => {
     fetchAndDisplayMarkers(selectedSubstation.SS_ID);
   };
 
-  //   Cancel save
+  // Cancel save
   const handleCancelSave = () => {
     setOverlayVisible(false);
   };
 
-  //   Handle marker click
+  // Handle marker click
   const handleMarkerClick = (marker) => {
     setIsVisible(true);
     // Reset the marker key
@@ -351,7 +353,7 @@ const MarkerComponent = () => {
     });
   };
 
-  //   Handle option change
+  // Handle option change
   const handleOptionChange = (e, option) => {
     const newAttributes = {
       ...details.attributes,
@@ -373,7 +375,7 @@ const MarkerComponent = () => {
     setAllowAddMarker(valid);
   };
 
-  //   Handle input change
+  // Handle input change
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setDetails((prevDetails) => ({
@@ -390,7 +392,7 @@ const MarkerComponent = () => {
     setAllowAddMarker(valid);
   };
 
-  // function to update marker click event
+  // Update marker click event
   const updateMarkerClickEvent = (marker, selectedSubstation) => {
     // Remove existing listeners
     new google.maps.event.clearListeners(marker, "dragend");
@@ -429,11 +431,8 @@ const MarkerComponent = () => {
     return marker;
   };
 
-  //  Add marker
+  // Add marker
   const handleAddMarker = () => {
-    console.log("Adding marker");
-    console.log("current key", currentMarkerKey);
-
     setMarkerMessage(`Selected ${selectedMarker}`);
 
     if (updatedMarkers.length !== 0) {
@@ -442,7 +441,7 @@ const MarkerComponent = () => {
 
     if (currentMarkerKey) {
       if (tempMarkers && tempMarkers.markerKey === currentMarkerKey) {
-        // add tempMarker to markers[selectedSubstation.SS_ID]
+        // Add tempMarker to markers[selectedSubstation.SS_ID]
         const marker = updateMarkerClickEvent(tempMarkers, selectedSubstation);
         marker.attributes = details.attributes;
 
@@ -450,7 +449,7 @@ const MarkerComponent = () => {
           ? [...markers[selectedSubstation.SS_ID], marker]
           : [marker];
 
-        setTempMarkers([]); // clear tempMarkers
+        setTempMarkers([]); // Clear tempMarkers
       } else {
         // Create a copy of the markers array for the selected substation
         updatedMarkers = markers[selectedSubstation.SS_ID].map((marker) => {
@@ -465,7 +464,6 @@ const MarkerComponent = () => {
         });
       }
 
-      // markers[selectedSubstation.SS_ID].forEach((m) => m.setMap(null));
       if (markers[selectedSubstation.SS_ID]) {
         markers[selectedSubstation.SS_ID].forEach((m) => {
           if (m && typeof m.setMap === "function") {
@@ -488,10 +486,7 @@ const MarkerComponent = () => {
         });
       }
 
-      // setSelectedMarker(null);
       setTempMarkers([]);
-
-      // fetchAndDisplayMarkers(selectedSubstation.SS_ID, updatedMarkers);
     }
   };
 
@@ -523,6 +518,7 @@ const MarkerComponent = () => {
           <p id="markerMessage">{markerMessage}</p>
         </div>
         <div className="marker-list">
+          {/* Render marker list */}
           {Object.keys(markerData).map((marker) => (
             <div
               key={marker}
@@ -535,12 +531,14 @@ const MarkerComponent = () => {
               {marker}
             </div>
           ))}
+          {/* Button to disable marker adding */}
           <button
             onClick={handleDisableMarkerAdding}
             id="disableMarkerAddingButton"
           >
             Done Adding Markers
           </button>
+          {/* Button to save markers */}
           <button
             onClick={handleSaveMarkers}
             id="saveMarkers"
@@ -549,6 +547,7 @@ const MarkerComponent = () => {
             Save Markers
           </button>
         </div>
+        {/* Render marker details */}
         {isVisible && (
           <div className="marker-details">
             <button className="close-btn" onClick={closeDetails}>
@@ -571,6 +570,7 @@ const MarkerComponent = () => {
         )}
       </div>
 
+      {/* Save popup */}
       <SavePopup
         isVisible={isOverlayVisible}
         downloadChecked={downloadChecked}
