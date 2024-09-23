@@ -34,7 +34,7 @@ function Footer() {
     <div className="footer">
       <h3>Mapping Transmission Lines and Substations in the United States</h3>
 
-      {/* <div className="download-data">
+      <div className="download-data">
         <div className="download-grid-mapping">
           <button
             onClick={() =>
@@ -45,7 +45,20 @@ function Footer() {
               )
             }
           >
-            Download Grid Mapping
+            CSV
+          </button>
+        </div>
+        <div className="download-grid-mapping">
+          <button
+            onClick={() =>
+              handleDownload(
+                "/gis/substations/export-geojson/",
+                "grid_mapping.geojson",
+                true
+              )
+            }
+          >
+            GEOJSON
           </button>
         </div>
 
@@ -64,7 +77,7 @@ function Footer() {
             Download Transmission Lines
           </button>
         </div>
-      </div> */}
+      </div>
     </div>
   );
 }
