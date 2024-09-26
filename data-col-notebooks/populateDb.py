@@ -2,6 +2,7 @@ import os
 import requests
 import json
 
+
 # Grid regions worked on by different team members
 regions = {
     # "NorthGUC": "Evan",
