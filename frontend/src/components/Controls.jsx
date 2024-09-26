@@ -74,6 +74,7 @@ const Controls = () => {
     if (regionParam) {
       setSelectedRegion(regionParam);
       populateRegions(regionParam, substationIdParam);
+      populateValidationDropdown();
     } else {
       populateRegions(null, substationIdParam);
     }
@@ -160,6 +161,56 @@ const Controls = () => {
   };
 
   /**
+   * Populates the validation dropdown based on the selected region.
+   */
+  // Implement a simple seeded random number generator
+  class SeededRandom {
+    constructor(seed) {
+      this.seed = seed;
+    }
+
+    // Generate a random number between 0 and 1
+    random() {
+      const x = Math.sin(this.seed++) * 10000;
+      return x - Math.floor(x);
+    }
+  }
+
+  // Use the current date as the seed
+  const seed = new Date().getMonth() + new Date().getFullYear() * 12;
+  const seededRandom = new SeededRandom(seed);
+
+  const populateValidationDropdown = () => {
+    const validationDropdown = document.getElementById("validationDropdown");
+    validationDropdown.innerHTML = "";
+
+    // Randomly select 300 substations from all regions using the seeded random
+    const selectedSubstations = getRandomSubset(data, 300, seededRandom);
+
+    selectedSubstations.forEach((substation, index) => {
+      const option = document.createElement("option");
+      option.value = JSON.stringify(substation);
+      option.text = `${index + 1}) ${substation.SS_ID} (${substation.REGION})`;
+      validationDropdown.add(option);
+    });
+  };
+
+  // Modified helper function to use the seeded random number generator
+  const getRandomSubset = (array, size, seededRandom) => {
+    let shuffled = array.slice(0),
+      i = array.length,
+      temp,
+      index;
+    while (i--) {
+      index = Math.floor(seededRandom.random() * (i + 1));
+      temp = shuffled[index];
+      shuffled[index] = shuffled[i];
+      shuffled[i] = temp;
+    }
+    return shuffled.slice(0, size);
+  };
+
+  /**
    * Event handler for region dropdown change.
    *
    * @param {Event} event - The change event.
@@ -236,6 +287,10 @@ const Controls = () => {
     <div id="controls">
       <select id="regionDropdown" onChange={handleRegionChange}></select>
       <select id="ssDropdown" onChange={handleSubstationChange}></select>
+      <select
+        id="validationDropdown"
+        onChange={handleSubstationChange}
+      ></select>
       <label>
         <input type="checkbox" id="toggleLines" onChange={handleToggleLines} />{" "}
         Show Transmission Lines
