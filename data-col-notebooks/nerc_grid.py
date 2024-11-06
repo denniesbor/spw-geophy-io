@@ -19,7 +19,6 @@ import xarray as xr
 import pandas as gpd
 import bezpy
 from pysecs import SECS
-from scipy import signal
 from scipy.signal import butter, filtfilt
 import numpy as np
 import pandas as pd
@@ -273,7 +272,7 @@ storm_df = pd.read_csv(storm_data_loc)
 storm_df["Start"] = pd.to_datetime(storm_df["Start"])
 storm_df["End"] = pd.to_datetime(storm_df["End"])
 
-# filter from 1985 to 2015
+# # filter from 1985 to 2015
 # storm_df = storm_df[(storm_df["Start"] >= "1985-01-01") & (storm_df["End"] <= "2016-01-01")]
 
 # Load datasets
@@ -352,69 +351,6 @@ def calculate_SECS(B, obs_xy, pred_xy):
 
     return B_pred
 
-# Find peaks
-def find_storm_maximum(E_pred, window_hours=(20/60)):
-    """
-    Find storm maximum using windowed analysis of 1-minute resolution data.
-    
-    Parameters:
-    -----------
-    E_pred : numpy.ndarray
-        Array of shape (time, sites, components) containing E-field values at 1-min resolution
-    window_hours : float
-        Size of the analysis window in hours
-    
-    Returns:
-    --------
-    dict containing:
-        - optimal_time : int
-            Index of the determined storm maximum
-        - site_magnitudes : numpy.ndarray
-            Magnitude at each site at the optimal time
-    """
-    # Convert window hours to number of samples (1 sample per minute)
-    window_samples = int(window_hours * 60)
-    
-    # Calculate magnitude at each site and time
-    site_maxE_mags = np.sqrt(np.sum(E_pred**2, axis=2))
-    
-    # Calculate the total magnitude across all sites
-    total_magnitude = np.nansum(site_maxE_mags, axis=1)
-    
-    # Create a centered moving average
-    window = np.ones(window_samples) / window_samples
-    # smoothed_magnitude = np.convolve(total_magnitude, window, mode='same')
-    smoothed_magnitude = gaussian_filter1d(total_magnitude, sigma=window_samples//2)
-    
-    # Find peaks in the smoothed data
-    peaks, _ = signal.find_peaks(
-        smoothed_magnitude,
-        distance=window_samples//2,  # Minimum distance between peaks
-        prominence=0.2 * np.max(smoothed_magnitude)  # Minimum prominence
-    )
-    
-    if len(peaks) == 0:
-        # If no peaks found, use the maximum point
-        optimal_time = np.argmax(smoothed_magnitude)
-    else:
-        # Among the peaks, find the one with highest average in surrounding window
-        peak_scores = []
-        for peak in peaks:
-            start_idx = max(0, peak - window_samples//2)
-            end_idx = min(len(smoothed_magnitude), peak + window_samples//2)
-            window_mean = np.mean(smoothed_magnitude[start_idx:end_idx])
-            peak_scores.append(window_mean)
-        
-        optimal_time = peaks[np.argmax(peak_scores)]
-    
-    # Get data at the optimal time
-    return {
-        'optimal_time': optimal_time,
-        'site_magnitudes': E_pred[optimal_time],
-        'total_magnitude': total_magnitude[optimal_time],
-        'smoothed_magnitude': smoothed_magnitude[optimal_time]
-    }
-
 
 # --------------------------------------------------------------------------
 # Calculate the maxes for all storms
@@ -482,33 +418,17 @@ def calculate_maxes(start_time, end_time, calcV=False):
         Ex, Ey = site.convolve_fft(B_pred[:, i, 0], B_pred[:, i, 1], dt=60)
         E_pred[:, i, 0] = Ex
         E_pred[:, i, 1] = Ey
-        
-    # Storm peaks
-    e_pred_peak_data = find_storm_maximum(E_pred, window_hours=(20/60)) # Every 20 minutes for thermal heating
-    peak_time = e_pred_peak_data['optimal_time']
-    e_pred_peak = E_pred[peak_time, :, :]
-    
-    e_pred_magnitude = np.sqrt(np.sum(e_pred_peak**2, axis=1))
 
     logging.info(f"Done calculating electric fields: {time.time() - t0}")
-    # site_maxE = np.max(np.sqrt(E_pred[:, :, 0] ** 2 + E_pred[:, :, 1] ** 2), axis=0)
-    site_maxE = e_pred_magnitude
+    site_maxE = np.max(np.sqrt(E_pred[:, :, 0] ** 2 + E_pred[:, :, 1] ** 2), axis=0)
 
     if calcV:
-        # logging.info("Calculating voltages...")
-        # arr_delaunay = np.zeros(shape=(E_pred.shape[0], n_trans_lines))
-        # for i, tLine in enumerate(df.obj):
-        #     arr_delaunay[:, i] = tLine.calc_voltages(E_pred, how="delaunay")
-        # line_maxV = np.nanmax(np.abs(arr_delaunay), axis=0)
-        # logging.info(f"Done calculating voltages: {time.time() - t0}")
-        e_pred = e_pred_peak.reshape(1, e_pred_peak.shape[0], e_pred_peak.shape[1])
         logging.info("Calculating voltages...")
-        arr_delaunay = np.zeros(shape=(e_pred.shape[0], n_trans_lines))
+        arr_delaunay = np.zeros(shape=(E_pred.shape[0], n_trans_lines))
         for i, tLine in enumerate(df.obj):
-            arr_delaunay[:, i] = tLine.calc_voltages(e_pred, how="delaunay")
-        line_maxV = np.squeeze(arr_delaunay)
+            arr_delaunay[:, i] = tLine.calc_voltages(E_pred, how="delaunay")
+        line_maxV = np.nanmax(np.abs(arr_delaunay), axis=0)
         logging.info(f"Done calculating voltages: {time.time() - t0}")
-    
     else:
         logging.info("Skipping voltage calculation")
         line_maxV = np.zeros(n_trans_lines)
@@ -537,299 +457,185 @@ def process_storm(args):
         Contains (i, maxB, maxE, maxV)
     """
     i, row, calcV = args
-    try:
-        storm_times = (row["Start"], row["End"])
-        logging.info(f"Working on storm: {i + 1}")
-        maxB, maxE, maxV, B_pred, E_pred = calculate_maxes(
-            storm_times[0], storm_times[1], calcV
-        )
-        return i, maxB, maxE, maxV, B_pred, E_pred
-    except Exception as e:
-        logging.error(f"Error processing storm {i + 1}: {e}")
-        return i, None, None, None, None, None
-
-# # %%
-# # Process Gannon storm E fields
-# # %%
-# gannon_storm = storm_df[storm_df.Start == "2024-05-09 14:00:00"]
-
-# start_time, end_time = (gannon_storm.iloc[0]["Start"], gannon_storm.iloc[0]["End"])
-
-# t0 = time.time()
-
-# obs_xy = []
-# B_obs = []
-# names = []
-# site_xys = np.array([(site.latitude, site.longitude) for site in MT_sites])
-
-# # Greg Lucas detrending fit
-# # Detrending function
-# def detrend_polynomial(data, deg=2):
-#     """Detrends data with a polynomial fit along the time axis for each station and component."""
-#     timesteps, stations, components = data.shape
-#     xvals = np.arange(timesteps)  # Time indices (axis=0)
-
-#     # Prepare space for detrended data
-#     detrended_data = np.zeros_like(data)
-
-#     # Fit a polynomial for each station and component
-#     for i in range(stations):
-#         for j in range(components):
-#             # Fit the polynomial for the (time, station, component) slice
-#             poly_coeffs = np.polyfit(xvals, data[:, i, j], deg=deg)
-
-#             # Evaluate the polynomial (trend) for this slice
-#             trend = np.polyval(poly_coeffs, xvals)
-
-#             # Subtract the trend
-#             detrended_data[:, i, j] = data[:, i, j] - trend
-
-#     return detrended_data
-
-# # Filtering function (applies independently per station and component)
-# def filter_signal(data, sample_freq=1./60, lowcut=1e-4, highcut=1e-1, order=3):
-#     """Applies Butterworth filtering along the time axis for each station and component."""
-#     nyquist = 0.5 * sample_freq
-#     low = lowcut / nyquist
-#     high = highcut / nyquist
-
-#     # Choose filter type based on sample frequency
-#     if sample_freq > highcut:
-#         b, a = butter(order, [low, high], btype='band')
-#     else:
-#         b, a = butter(order, low, btype='highpass')
-
-#     # Apply the filter along the time axis for each station and component
-#     filtered_data = filtfilt(b, a, data, axis=0)
-#     return filtered_data
-
-# for name, dataset in obs_dict.items():
-#     data_xarr = dataset.loc[{"time": slice(start_time, end_time)}].interpolate_na("Time")
-#     if len(data_xarr["time"]) == 0:
-#         continue
-
-#     data = np.array(data_xarr.loc[{"time": slice(start_time, end_time)}].to_array().T)
-#     if np.any(np.isnan(data)):
-#         continue
-
-#     obs_xy.append((dataset.latitude, dataset.longitude))
-#     B_obs.append(data)
-    
-#     names.append(name)
-
-# obs_xy = np.squeeze(np.array(obs_xy))
-# B_obs = np.squeeze(np.array(B_obs)).transpose(2, 0, 1)
-
-# # # Step 1: Detrend the data independently for each station/component
-# # detrended_data = detrend_polynomial(B_obs, deg=2)
-
-# # # Step 2: Apply filtering to the detrended data
-# # filtered_data = filter_signal(detrended_data, sample_freq=1./60, lowcut=1e-4, highcut=1e-1, order=3)
-
-# # data = B_obs.copy()
-
-# # data = data - np.median(data, axis=0)
-# # B_obs = data
-
-# # %%
-# B_pred = calculate_SECS(B_obs, obs_xy, site_xys)
-# logging.info(f"Done calculating magnetic fields: {time.time() - t0}")
-
-# site_maxB = np.max(np.sqrt(B_pred[:, :, 0] ** 2 + B_pred[:, :, 1] ** 2), axis=0)
-
-# E_pred = np.zeros((len(B_obs), len(site_xys), 2))
-# for i, site in enumerate(MT_sites):
-#     Ex, Ey = site.convolve_fft(B_pred[:, i, 0], B_pred[:, i, 1], dt=60)
-#     E_pred[:, i, 0] = Ex
-#     E_pred[:, i, 1] = Ey
-
-# # %%
-# logging.info(f"Done calculating electric fields: {time.time() - t0}")
-# site_maxE_mags = np.sqrt(E_pred[:, :, 0] ** 2 + E_pred[:, :, 1] ** 2)
-# site_maxE = np.nanmax(site_maxE_mags, axis=0)
-# site_with_maxE = np.nanargmax(site_maxE)
-# time_site_maxE = np.nanargmax(site_maxE_mags[:, site_with_maxE])
-# e_pred_maxes = E_pred[time_site_maxE, np.arange(len(site_xys)), :]  
-
-# # %%
-# window_hours=(10/60)
-
-# # Convert window hours to number of samples (1 sample per minute)
-# window_samples = int(window_hours * 60)
-
-# # Calculate magnitude at each site and time
-# site_maxE_mags = np.sqrt(np.sum(E_pred**2, axis=2))
-
-# # Calculate the total magnitude across all sites
-# total_magnitude = np.nansum(site_maxE_mags, axis=1)
-
-# # Create a centered moving average
-# window = np.ones(window_samples) / window_samples
-# # smoothed_magnitude = np.convolve(total_magnitude, window, mode='same')
-# smoothed_magnitude = gaussian_filter1d(total_magnitude, sigma=window_samples//2)
-
-# # Find peaks in the smoothed data
-# peaks, _ = signal.find_peaks(
-#     smoothed_magnitude,
-#     distance=window_samples//2,  # Minimum distance between peaks
-#     prominence=0.2 * np.max(smoothed_magnitude)  # Minimum prominence
-# )
-
-# # %%
-# from scipy import signal
-
-# def find_storm_maximum(E_pred, window_hours=12):
-#     """
-#     Find storm maximum using windowed analysis of 1-minute resolution data.
-    
-#     Parameters:
-#     -----------
-#     E_pred : numpy.ndarray
-#         Array of shape (time, sites, components) containing E-field values at 1-min resolution
-#     window_hours : float
-#         Size of the analysis window in hours
-    
-#     Returns:
-#     --------
-#     dict containing:
-#         - optimal_time : int
-#             Index of the determined storm maximum
-#         - site_magnitudes : numpy.ndarray
-#             Magnitude at each site at the optimal time
-#     """
-#     # Convert window hours to number of samples (1 sample per minute)
-#     window_samples = int(window_hours * 60)
-    
-#     # Calculate magnitude at each site and time
-#     site_maxE_mags = np.sqrt(np.sum(E_pred**2, axis=2))
-    
-#     # Calculate the total magnitude across all sites
-#     total_magnitude = np.nansum(site_maxE_mags, axis=1)
-    
-#     # Create a centered moving average
-#     window = np.ones(window_samples) / window_samples
-#     # smoothed_magnitude = np.convolve(total_magnitude, window, mode='same')
-#     # smoothed_magnitude = np.convolve(total_magnitude, window, mode='same')
-#     smoothed_magnitude = gaussian_filter1d(total_magnitude, sigma=window_samples//2)
-    
-#     # Find peaks in the smoothed data
-#     peaks, _ = signal.find_peaks(
-#         smoothed_magnitude,
-#         distance=window_samples//2,  # Minimum distance between peaks
-#         prominence=0.2 * np.max(smoothed_magnitude)  # Minimum prominence
-#     )
-    
-#     if len(peaks) == 0:
-#         # If no peaks found, use the maximum point
-#         optimal_time = np.argmax(smoothed_magnitude)
-#     else:
-#         # Among the peaks, find the one with highest average in surrounding window
-#         peak_scores = []
-#         for peak in peaks:
-#             start_idx = max(0, peak - window_samples//2)
-#             end_idx = min(len(smoothed_magnitude), peak + window_samples//2)
-#             window_mean = np.mean(smoothed_magnitude[start_idx:end_idx])
-#             peak_scores.append(window_mean)
-        
-#         optimal_time = peaks[np.argmax(peak_scores)]
-    
-#     # Get data at the optimal time
-#     return {
-#         'optimal_time': optimal_time,
-#         'site_magnitudes': E_pred[optimal_time],
-#         'total_magnitude': total_magnitude[optimal_time],
-#         'smoothed_magnitude': smoothed_magnitude[optimal_time]
-#     }
-
-# e_pred_peak_data = find_storm_maximum(E_pred, window_hours=0.5)
-# peak_time = e_pred_peak_data['optimal_time']
-# e_pred_peak = E_pred[peak_time, :, :]
-
-# # %%
-# calcV = True
-# # e_pred = e_pred_peak.reshape(1, e_pred_peak.shape[0], e_pred_peak.shape[1])
-# e_pred = E_pred.copy()
-# if calcV:
-#     logging.info("Calculating voltages...")
-#     arr_delaunay = np.zeros(shape=(e_pred.shape[0], n_trans_lines))
-#     for i, tLine in enumerate(df.obj):
-#         arr_delaunay[:, i] = tLine.calc_voltages(e_pred, how="delaunay")
-#     line_maxV = np.squeeze(arr_delaunay)
-#     logging.info(f"Done calculating voltages: {time.time() - t0}")
-# else:
-#     logging.info("Skipping voltage calculation")
-#     line_maxV = np.zeros(n_trans_lines)
-
-# # %%
-# e_pred_gannon = np.sqrt(E_pred[:, :, 0] ** 2 + E_pred[:, :, 1] ** 2)
+    storm_times = (row["Start"], row["End"])
+    logging.info(f"Working on storm: {i + 1}")
+    maxB, maxE, maxV, B_pred, E_pred = calculate_maxes(
+        storm_times[0], storm_times[1], calcV
+    )
+    return i, maxB, maxE, maxV, B_pred, E_pred
 
 # %%
-def main():
+# Process Gannon storm E fields
+# %%
+gannon_storm = storm_df[storm_df.Start == "2024-05-09 14:00:00"]
 
-    # File paths
-    maxB_file = data_dir / "maxB_arr_testing_2.npy"
-    maxE_file = data_dir / "maxE_arr_testing_2.npy"
-    maxV_file = data_dir / "maxV_arr_testing_2.npy"
+start_time, end_time = (gannon_storm.iloc[0]["Start"], gannon_storm.iloc[0]["End"])
 
-    # Log done loading data, and print unique obs in obs_dict
-    logging.info(f"Done loading data, Obs in obs_dict: {obs_dict.keys()}")
+t0 = time.time()
 
-    CALCULATE_VALUES = True
-    if CALCULATE_VALUES:
-        t0 = time.time()
-        logging.info(f"Starting to calculate storm maxes...")
+obs_xy = []
+B_obs = []
+names = []
+site_xys = np.array([(site.latitude, site.longitude) for site in MT_sites])
 
-    if CALCULATE_VALUES:
-        n_storms = len(storm_df)
-        n_sites = len(site_xys)
-        calcV  = True
+# Greg Lucas detrending fit
+# Detrending function
+def detrend_polynomial(data, deg=2):
+    """Detrends data with a polynomial fit along the time axis for each station and component."""
+    timesteps, stations, components = data.shape
+    xvals = np.arange(timesteps)  # Time indices (axis=0)
 
-        # Check if saved results exist, else initialize arrays
-        if os.path.exists(maxB_file) and os.path.exists(maxE_file):
-            maxB_arr = np.load(maxB_file)
-            maxE_arr = np.load(maxE_file)
-            logging.info(f"Loaded existing maxB and maxE arrays")
-        else:
-            maxB_arr = np.zeros((n_sites, n_storms))
-            maxE_arr = np.zeros((n_sites, n_storms))
+    # Prepare space for detrended data
+    detrended_data = np.zeros_like(data)
 
-        if calcV and os.path.exists(maxV_file):
-            maxV_arr = np.load(maxV_file)
-        else:
-            maxV_arr = np.zeros((n_trans_lines, n_storms))
+    # Fit a polynomial for each station and component
+    for i in range(stations):
+        for j in range(components):
+            # Fit the polynomial for the (time, station, component) slice
+            poly_coeffs = np.polyfit(xvals, data[:, i, j], deg=deg)
 
-        # Prepare the args list for only unprocessed storms
-        args = []
-        for i, row in storm_df.iterrows():
-            # Check if the storm has already been processed by checking the result arrays
-            if np.all(maxB_arr[:, i] == 0):  # Not processed if all zeros
-                args.append((i, row, calcV))
+            # Evaluate the polynomial (trend) for this slice
+            trend = np.polyval(poly_coeffs, xvals)
 
-        logging.info(f"Processing {len(args)} remaining storms")
+            # Subtract the trend
+            detrended_data[:, i, j] = data[:, i, j] - trend
 
-        # Use multiprocessing with a pool of workers
-        with multiprocessing.Pool(12) as pool:
-            for result in pool.imap_unordered(process_storm, args):
-                i, maxB, maxE, maxV, B_pred, E_pred = result
+    return detrended_data
 
-                # Update the arrays with results
-                maxB_arr[:, i] = maxB
-                maxE_arr[:, i] = maxE
-                if calcV:
-                    maxV_arr[:, i] = maxV
+# Filtering function (applies independently per station and component)
+def filter_signal(data, sample_freq=1./60, lowcut=1e-4, highcut=1e-1, order=3):
+    """Applies Butterworth filtering along the time axis for each station and component."""
+    nyquist = 0.5 * sample_freq
+    low = lowcut / nyquist
+    high = highcut / nyquist
 
-                # Save intermediate results after each storm
-                np.save(maxB_file, maxB_arr)
-                np.save(maxE_file, maxE_arr)
-                if calcV:
-                    np.save(maxV_file, maxV_arr)
+    # Choose filter type based on sample frequency
+    if sample_freq > highcut:
+        b, a = butter(order, [low, high], btype='band')
+    else:
+        b, a = butter(order, low, btype='highpass')
 
-                logging.info(f"Processed and saved storm: {i + 1}")
+    # Apply the filter along the time axis for each station and component
+    filtered_data = filtfilt(b, a, data, axis=0)
+    return filtered_data
 
-        logging.info(f"Done calculating storm maxes: {time.time() - t0}")
-        logging.info(f"Saved results to {data_dir}")
 
-if __name__ == "__main__":
-    main()
+for name, dataset in obs_dict.items():
+    data_xarr = dataset.loc[{"time": slice(start_time, end_time)}].interpolate_na("Time")
+    if len(data_xarr["time"]) == 0:
+        continue
+
+    data = np.array(data_xarr.loc[{"time": slice(start_time, end_time)}].to_array().T)
+    if np.any(np.isnan(data)):
+        continue
+
+    obs_xy.append((dataset.latitude, dataset.longitude))
+    B_obs.append(data)
+    
+    names.append(name)
+
+obs_xy = np.squeeze(np.array(obs_xy))
+B_obs = np.squeeze(np.array(B_obs)).transpose(2, 0, 1)
+
+# # Step 1: Detrend the data independently for each station/component
+# detrended_data = detrend_polynomial(B_obs, deg=2)
+
+# # Step 2: Apply filtering to the detrended data
+# filtered_data = filter_signal(detrended_data, sample_freq=1./60, lowcut=1e-4, highcut=1e-1, order=3)
+
+# data = B_obs.copy()
+
+# data = data - np.median(data, axis=0)
+# B_obs = data
+
+# %%
+
+B_pred = calculate_SECS(B_obs, obs_xy, site_xys)
+logging.info(f"Done calculating magnetic fields: {time.time() - t0}")
+
+site_maxB = np.max(np.sqrt(B_pred[:, :, 0] ** 2 + B_pred[:, :, 1] ** 2), axis=0)
+
+E_pred = np.zeros((len(B_obs), len(site_xys), 2))
+for i, site in enumerate(MT_sites):
+    Ex, Ey = site.convolve_fft(B_pred[:, i, 0], B_pred[:, i, 1], dt=60)
+    E_pred[:, i, 0] = Ex
+    E_pred[:, i, 1] = Ey
+
+logging.info(f"Done calculating electric fields: {time.time() - t0}")
+site_maxE = np.max(np.sqrt(E_pred[:, :, 0] ** 2 + E_pred[:, :, 1] ** 2), axis=0)
+calcV = False
+if calcV:
+    logging.info("Calculating voltages...")
+    arr_delaunay = np.zeros(shape=(E_pred.shape[0], n_trans_lines))
+    for i, tLine in enumerate(df.obj):
+        arr_delaunay[:, i] = tLine.calc_voltages(E_pred, how="delaunay")
+    line_maxV = np.nanmax(np.abs(arr_delaunay), axis=0)
+    logging.info(f"Done calculating voltages: {time.time() - t0}")
+else:
+    logging.info("Skipping voltage calculation")
+    line_maxV = np.zeros(n_trans_lines)
+
+# %%
+e_pred_gannon = np.sqrt(E_pred[:, :, 0] ** 2 + E_pred[:, :, 1] ** 2)
+
+# %%
+# Dwefine gannon storm grid
+# Get the min and max latitude and longitude
+miny, minx = np.min(site_xys, axis=0)
+maxy, maxx = np.max(site_xys, axis=0)
+
+# Slight padding for the grid
+minx -= 1
+maxx += 1
+miny -= 1
+maxy += 1
+
+# 500 km -> approx 4.5 degrees latitude, calculate longitude step for 500 km based on latitude
+lat_step = 4.5  # 500 km in latitude
+
+# Function to calculate longitude degrees corresponding to 500 km for given latitude
+def km_to_deg_longitude(km, latitude):
+    return km / (111 * np.cos(np.radians(latitude)))
+
+# Compute the average latitude and longitude step size
+avg_lat = (miny + maxy) / 2
+long_step = km_to_deg_longitude(500, avg_lat)
+
+# Create bins for latitudes and longitudes
+lat_bins = np.arange(miny, maxy, lat_step)
+long_bins = np.arange(minx, maxx, long_step)
+
+# Initialize an array to store the averaged electric fields for each grid cell and time step
+time_steps = e_pred_gannon.shape[0]
+num_lat_bins = len(lat_bins)
+num_long_bins = len(long_bins)
+e_field_grid_avg = np.zeros((time_steps, num_lat_bins, num_long_bins))
+
+# Function to bin and average electric fields within the grid for each time step
+def bin_and_average_fields(site_coords, e_field_data, lat_bins, long_bins):
+    # Create an array to store the count of sites per grid cell for averaging
+    counts = np.zeros((num_lat_bins, num_long_bins))
+
+    # Iterate over each site
+    for site_idx, (lat, lon) in enumerate(site_coords):
+        # Find the corresponding grid cell for this site
+        lat_idx = np.digitize(lat, lat_bins) - 1
+        lon_idx = np.digitize(lon, long_bins) - 1
+        
+        # Add electric field values to the corresponding grid cell
+        e_field_grid_avg[:, lat_idx, lon_idx] += e_field_data[:, site_idx]
+        counts[lat_idx, lon_idx] += 1
+
+    # Avoid division by zero for empty grid cells
+    counts[counts == 0] = 1
+    print(counts)
+
+    # Divide by the count of sites in each grid cell to compute the average
+    e_field_grid_avg[:, :, :] /= counts
+    
+    return e_field_grid_avg
+
+# Call the function to bin and average the electric field data
+e_field_grid_avg = bin_and_average_fields(site_xys, e_pred_gannon, lat_bins, long_bins)
 
 # %%

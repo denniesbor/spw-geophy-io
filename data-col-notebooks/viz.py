@@ -12,6 +12,7 @@ import pickle
 from pathlib import Path
 from memory_profiler import profile
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import matplotlib.colors as colors
 from matplotlib.collections import LineCollection
 import matplotlib.patches as mpatches
@@ -93,6 +94,10 @@ df_gic_100 = pd.read_csv(data_loc / "gic_100.csv")
 df_gic_500 = pd.read_csv(data_loc / "gic_500.csv")
 df_gic_1000 = pd.read_csv(data_loc / "gic_1000.csv")
 
+# Read GIC data
+# df_gic = pd.read_csv(data_loc / "econ_data" / "winding_median_df.csv")
+df_gic = pd.read_csv(data_loc / "econ_data" / "winding_mean_df.csv")
+
 
 # %%
 # Line_collection
@@ -150,7 +155,7 @@ def plot_transmission_lines(
 
 # %%
 # Set up map
-def setup_map(ax, spatial_extent=[-125, -66.5, 24, 50]):
+def setup_map(ax, spatial_extent=[-120, -75, 25, 50]):
     ax.set_extent(spatial_extent, ccrs.PlateCarree())
 
     ax.add_feature(cfeature.LAND, facecolor="#F0F0F0")
@@ -247,10 +252,6 @@ def plot_mt_sites_e_fields_contour(
 
 
 # %%
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-
-
 def create_custom_colorbar_e_field(
     ax, obj, label, current_min, current_max, title, vmin, vmax, e_field=True
 ):
@@ -343,7 +344,7 @@ def create_custom_colorbar_e_field(
 def carto(
     ax,
     label_titles,
-    spatial_extent=[-125, -66.5, 24, 50],
+    spatial_extent=[-120, -75, 25, 50],
     add_grid_regions=True,
     df_tl=None,
     df_substations=None,
@@ -800,7 +801,7 @@ def plot_transformer_gic(
 def carto(
     ax,
     label_titles,
-    spatial_extent=[-125, -66.5, 24, 50],
+    spatial_extent=[-120, -75, 25, 50],
     add_grid_regions=True,
     df_tl=None,
     df_substations=None,
@@ -863,7 +864,7 @@ def carto(
                 ax,
                 bins,
                 cmap,
-                title="GIC (A)",
+                title="GIC (A/ph)",
                 legend_width=legend_width,
                 norm_val=norm_val,
             )
@@ -874,50 +875,35 @@ def carto(
 
 # Function to plot gICs for transformers
 def create_gic_plots(
-    df, spatial_extent=[-125, -66.5, 24, 50], cmap="YlOrRd", norm_val=2
+    df, spatial_extent=[-120, -75, 25, 50], cmap="YlOrRd", norm_val=2, storm_col=None
 ):
-
-    try:
-        df["gic"] = df["gic"].apply(eval)  # Convert string to dictionary
-    except Exception as e:
-        logger.error(f"Error: {e}")
-
-    all_gic_values = []
 
     projection = ccrs.LambertConformal(central_longitude=-98, central_latitude=39.5)
     fig = plt.figure(figsize=(8, 8))  # Adjust figure size as needed
     gs = gridspec.GridSpec(3, 2, figure=fig, wspace=0.1, hspace=0.3)
 
     plot_order = [
-        (1, 0, "Auto", "i_c"),
-        (1, 1, "Auto", "i_s"),
-        (2, 0, "GY-GY/GY-GY-D/GY-D", "i_w1"),
-        (2, 1, "GY-GY/GY-GY-D", "i_w2"),
+        (1, 0, "Auto", "Common"),
+        (1, 1, "Auto", "Series"),
+        (2, 0, "GY-GY/GY-GY-D/GY-D", "HV"),
+        (2, 1, "GY-GY/GY-GY-D", "LV"),
     ]
 
     titles = {
-        "i_c": "Autotransformers",
-        "i_s": "Autotransformers",
-        "i_w1": "GY-GY-D, GY-GY, and GY-D Transformers.",
-        "i_w2": "GY-GY-D and GY-GY Transformers.",
+        "Common": "Autotransformers",
+        "Series": "Autotransformers",
+        "HV": "GY-GY-D, GY-GY, and GY-D Transformers.",
+        "LV": "GY-GY-D and GY-GY Transformers.",
     }
 
     substitles = {
-        "i_c": "Common Winding GIC Estimates.",
-        "i_s": "Series Winding GIC Estimates.",
-        "i_w1": "Primary Winding GIC",
-        "i_w2": "Secondary Winding GIC",
+        "Common": "Common Winding GIC Estimates.",
+        "Series": "Series Winding GIC Estimates.",
+        "HV": "Primary Winding GIC",
+        "LV": "Secondary Winding GIC",
     }
 
-    # Calculate global min and max GIC values
-    for row, col, transformer_type, gic_column in plot_order:
-        if transformer_type == "GY-GY/GY-GY-D":
-            df_type = df[df["type"].isin(["GY-GY-D", "GY-GY"])]
-        elif transformer_type == "GY-GY/GY-GY-D/GY-D":
-            df_type = df[df["type"].isin(["GY-GY-D", "GY-GY", "GY-D"])]
-        else:
-            df_type = df[df["type"] == transformer_type]
-        all_gic_values.extend([item.get(gic_column, 0) for item in df_type["gic"]])
+    all_gic_values = df[storm_col].values
 
     gic_global_vals = np.abs(np.array(all_gic_values))
 
@@ -926,29 +912,17 @@ def create_gic_plots(
 
     legend_width = 0.3
 
-    for i, (row, col, transformer_type, gic_column) in enumerate(plot_order):
-        if transformer_type == "GY-GY/GY-GY-D":
-            df_type = df[df["type"].isin(["GY-GY-D", "GY-GY"])]
-        elif transformer_type == "GY-GY/GY-GY-D/GY-D":
-            df_type = df[df["type"].isin(["GY-GY-D", "GY-GY", "GY-D"])]
-        else:
-            df_type = df[df["type"] == transformer_type]
+    for i, (row, col, _, winding) in enumerate(plot_order):
 
         ax = fig.add_subplot(gs[row, col], projection=projection)
 
-        gic_values = df_type["gic"].tolist()
-        all_keys = set()
-        for item in gic_values:
-            all_keys.update(item.keys())
-
-        for key in all_keys:
-            df_type[key] = [item.get(key, 0) for item in gic_values]
+        df_type = df_gic[df_gic["Winding"] == winding]
 
         ax_legend_ax = carto(
             ax,
             spatial_extent,
             df_substations=df_type,
-            value_column=gic_column,
+            value_column=storm_col,
             cmap=cmap,
             global_min=global_min,
             global_max=global_max,
@@ -958,30 +932,32 @@ def create_gic_plots(
             num_bins=6,
             norm_val=norm_val,
         )
-        title = f"({alphabet[i]}) {titles[gic_column]}"
+        title = f"({alphabet[i]}) {titles[winding]}"
 
         # ax.set_title(title, fontsize=9, loc='left')
         ax.text(0.01, 1.14, title, transform=ax.transAxes, fontsize=9)
         # Add subtitle
         ax.text(
-            0.01, 1.03, f"{substitles[gic_column]}", transform=ax.transAxes, fontsize=8
+            0.01, 1.03, f"{substitles[winding]}", transform=ax.transAxes, fontsize=8
         )
 
     plt.tight_layout()
     return fig
 
 
-# %%
-# Usage, starting with hallloween storm
-fig = create_gic_plots(df_gic_halloween, cmap="Reds", norm_val=1.5)
-# File name
-file_name = figures_path / "gic_plots_halloween.png"
-# fig.suptitle("Halloween Storm", fontsize=12)
-fig.savefig(file_name, dpi=300, bbox_inches="tight")
-plt.show()
+# # %%
+# # Usage, starting with hallloween storm
+# fig = create_gic_plots(df_gic, cmap="Reds", norm_val=0.2, storm_col="Hallloween A/ph")
+# # File name
+# file_name = figures_path / "gic_plots_halloween.png"
+# # fig.suptitle("Halloween Storm", fontsize=12)
+# fig.savefig(file_name, dpi=300, bbox_inches="tight")
+# plt.show()
 
 # %%
-fig = create_gic_plots(df_gic_100, cmap="YlOrRd", norm_val=3)
+fig = create_gic_plots(
+    df_gic, cmap="YlOrRd", norm_val=0.5, storm_col="100-year-hazard A/ph"
+)
 file_name = figures_path / "gic_plots_100.png"
 # Add suptitle to the figure
 # fig.suptitle("100 Year Hazard Maps", fontsize=12)
@@ -990,7 +966,7 @@ plt.show()
 
 # %%
 # Plot 500 year hazard maps
-fig = create_gic_plots(df_gic_500, cmap="YlOrRd", norm_val=3)
+fig = create_gic_plots(df_gic, cmap="YlOrRd", norm_val=0.5, storm_col="500-year-hazard A/ph")
 file_name = figures_path / "gic_plots_500.png"
 # Add suptitle to the figure
 # fig.suptitle("500 Year Hazard Maps", fontsize=12)
@@ -998,21 +974,21 @@ fig.savefig(file_name, dpi=300, bbox_inches="tight")
 plt.show()
 
 # %%
-fig = create_gic_plots(df_gic_1000, cmap="YlOrRd", norm_val=3)
+fig = create_gic_plots(df_gic, cmap="YlOrRd", norm_val=0.5, storm_col="1000-year-hazard A/ph")
 file_name = figures_path / "gic_plots_1000.png"
 fig.savefig(file_name, dpi=300, bbox_inches="tight")
 plt.show()
 
-# %%
-# Plot for St. Patricks storm
-fig = create_gic_plots(df_gic_st_patricks, cmap="YlOrRd")
-file_name = figures_path / "gic_plots_st_patricks.png"
-fig.savefig(file_name, dpi=300, bbox_inches="tight")
-plt.show()
+# # %%
+# # Plot for St. Patricks storm
+# fig = create_gic_plots(df_gic, cmap="YlOrRd", norm_val=0.1, storm_col="St. Patricks A/ph")
+# file_name = figures_path / "gic_plots_st_patricks.png"
+# fig.savefig(file_name, dpi=300, bbox_inches="tight")
+# plt.show()
 
 # %%
 # Plot for Gannon storm
-fig = create_gic_plots(df_gic_gannon, cmap="YlOrRd", norm_val=1.5)
+fig = create_gic_plots(df_gic, cmap="YlOrRd", norm_val=0.1, storm_col="Gannon A/ph")
 file_name = figures_path / "gic_plots_gannon.png"
 fig.savefig(file_name, dpi=300, bbox_inches="tight")
 plt.show()

@@ -293,3 +293,5 @@ def main(geomag_folder, usgs_obs, nrcan_obs):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     main(geomag_folder, usgs_obs, nrcan_obs)
+
+# %%

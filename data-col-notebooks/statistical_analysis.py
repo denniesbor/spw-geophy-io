@@ -4,7 +4,6 @@
 # Some of the code is adapted from the original code by Greg 2018 Hazard paper.
 # Author: Dennies Bor
 # ---------------------------------------------------------------
-
 # %%
 import sys
 import os
@@ -57,6 +56,7 @@ def setup_logging():
 
 # Logging
 logger = setup_logging()
+include_gannon = False
 
 # ---------------------------------------------------------------
 # Set up the data directories
@@ -110,12 +110,16 @@ storm_df = pd.read_csv(storm_data_loc)
 storm_df["Start"] = pd.to_datetime(storm_df["Start"])
 storm_df["End"] = pd.to_datetime(storm_df["End"])
 
+# # filter from 1985 to 2015
+# storm_df = storm_df[(storm_df["Start"] >= "1985-01-01") & (storm_df["End"] <= "2016-01-01")]
+
+
 # ---------------------------------------------------------------
 # Load the maxes as numpy arrays
 # ---------------------------------------------------------------
-maxB_arr = np.load(data_dir / "maxB_arr_testing.npy")
-maxE_arr = np.load(data_dir / "maxE_arr_testing.npy")
-maxV_arr = np.load(data_dir / "maxV_arr_testing.npy")
+maxB_arr = np.load(data_dir / "maxB_arr_testing_2.npy")
+maxE_arr = np.load(data_dir / "maxE_arr_testing_2.npy")
+maxV_arr = np.load(data_dir / "maxV_arr_testing_2.npy")
 
 # ---------------------------------------------------------------
 # Define key storm events
@@ -132,6 +136,8 @@ gannon_end = gannon_start + timedelta(days=1)  # 1 day duration
 st_patricks_start = datetime(2015, 3, 17, 0)  # St. Patrick's Day storm 2015
 st_patricks_end = st_patricks_start + timedelta(days=1)  # 1 day duration
 
+hydro_quebec_start = datetime(1989, 3, 13, 0)  # Hydro-Quebec storm 1989   
+hydro_quebec_end = hydro_quebec_start + timedelta(days=1)  # 1 day duration
 
 # ---------------------------------------------------------------
 # Helper function to check if a storm overlaps with an event
@@ -161,7 +167,6 @@ halloween_idx = get_event_indices(storm_df, halloween_start, halloween_end)
 gannon_idx = get_event_indices(storm_df, gannon_start, gannon_end)
 st_patricks_idx = get_event_indices(storm_df, st_patricks_start, st_patricks_end)
 
-
 # ---------------------------------------------------------------
 # Extract the maxes for the Halloween, Gannon, and St. Patrick's Day storms
 # ---------------------------------------------------------------
@@ -184,6 +189,10 @@ maxB_st_patricks, maxE_st_patricks, maxV_st_patricks = extract_max_values(
     maxB_arr, maxE_arr, maxV_arr, st_patricks_idx
 )
 
+maxB_hydro_quebec, maxE_hydro_quebec, maxV_hydro_quebec = extract_max_values(
+    maxB_arr, maxE_arr, maxV_arr, get_event_indices(storm_df, hydro_quebec_start, hydro_quebec_end)
+)
+
 # %%
 # ---------------------------------------------------------------
 # Fit a powerlaw and lognormal distribution to the maxes of B, E, and V
@@ -191,7 +200,6 @@ maxB_st_patricks, maxE_st_patricks, maxV_st_patricks = extract_max_values(
 # ---------------------------------------------------------------
 erf = scipy.special.erf
 erfinv = scipy.special.erfinv
-
 
 def lognormal_ppf(y, mu, sigma, xmin):
     Q = erf((np.log(xmin) - mu) / (np.sqrt(2) * sigma))
@@ -201,14 +209,24 @@ def lognormal_ppf(y, mu, sigma, xmin):
 
 
 def fit_data(data):
+    # Extract the sign of the data (-1 for negative, 1 for positive)
+    
+    sign_vector = np.sign(np.mean(np.nan_to_num(data, nan=0)))
+
+    # Fit lognormal to absolute values of the data
+    abs_data = np.abs(data)
+    
     with np.errstate(all="ignore"), warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        fit = powerlaw.Fit(data, xmin=np.min(data), verbose=False)
+        fit = powerlaw.Fit(abs_data, xmin=np.min(abs_data), verbose=False)
 
     fitting_func = fit.lognormal
     if np.any(np.isnan(fitting_func.cdf())):
         warnings.warn("No lognormal fit (changing to positive)")
         fitting_func = fit.lognormal_positive
+    
+    # Store the sign vector for back-transformation
+    fitting_func.sign_vector = sign_vector
 
     return fitting_func
 
@@ -222,9 +240,19 @@ def calc_return_period(fitting_func, return_period, nyears=n_years):
     y_return = lognormal_ppf(
         1 - x_return, fitting_func.mu, fitting_func.sigma, xmin=fitting_func.xmin
     )
+
+    # Reapply the original sign
+    if hasattr(fitting_func, 'sign_vector'):
+        sign_vector = fitting_func.sign_vector
+        y_return *= sign_vector
+    
     # Get rid of inf's
-    if ~np.isfinite(y_return):
-        return np.nan
+    if not np.all(np.isfinite(y_return)):
+        return 0.0
+    
+    # Make nans zero
+    if np.isnan(y_return):
+        y_return = 0.0
 
     return y_return
 
@@ -246,7 +274,7 @@ def safe_fit_and_calc(curr_data, return_periods, n_years):
             results = {}
             for period in return_periods:
                 y_return = calc_return_period(fitting_func, period, nyears=n_years)
-                if np.isnan(y_return) or np.isinf(y_return):
+                if np.any(np.isnan(y_return)) or np.any(np.isinf(y_return)):
                     logger.warning(
                         f"Invalid return value for period {period}: {y_return}"
                     )
@@ -370,10 +398,10 @@ def confidence_limits(results, return_periods):
 # Run the analysis
 # ---------------------------------------------------------------
 n_samples = 100
-return_periods = [100, 250, 500, 1000]
-resuls_B_path = data_dir / "results_B.pkl"
-resuls_E_path = data_dir / "results_E.pkl"
-resuls_V_path = data_dir / "results_V.pkl"
+return_periods = np.arange(25, 1001, 25)
+resuls_B_path = data_dir / "results_B_2.pkl"
+resuls_E_path = data_dir / "results_E_2.pkl"
+resuls_V_path = data_dir / "results_V_2.pkl"
 
 
 # ---------------------------------------------------------------
@@ -442,7 +470,7 @@ maxV_st_patricks = flatten_max_values(maxV_arr, st_patricks_idx)
 # ---------------------------------------------------------------
 # Save data into an HDF5 file
 # ---------------------------------------------------------------
-with h5py.File(data_dir / "geomagnetic_data.h5", "w") as f:
+with h5py.File(data_dir / "geomagnetic_data_return_periods.h5", "w") as f:
     # Create main groups
     sites = f.create_group("sites")
     events = f.create_group("events")
@@ -467,7 +495,7 @@ with h5py.File(data_dir / "geomagnetic_data.h5", "w") as f:
     # Store statistical predictions
     for field in ["E", "B", "V"]:
         field_group = predictions.create_group(field)
-        for year in [250, 100, 500, 1000]:
+        for year in return_periods:
             data = locals()[f"results_{field}_ci"][year]
             field_group.create_dataset(f"{year}_year", data=data)
 
@@ -478,3 +506,5 @@ with h5py.File(data_dir / "geomagnetic_data.h5", "w") as f:
     f.attrs["date_created"] = np.bytes_(datetime.now().isoformat())
 
 logging.info("Data saved to geomagnetic_data.h5")
+
+# %%
