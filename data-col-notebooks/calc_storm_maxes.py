@@ -12,6 +12,7 @@ import sys
 import psutil
 import logging
 import pickle
+import datetime
 from pathlib import Path
 import multiprocessing
 import powerlaw
@@ -27,6 +28,8 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from scipy.ndimage import gaussian_filter1d
 import matplotlib.pyplot as plt
+from pysecs import SECS
+from shapely.geometry import LineString
 
 
 # Set up logging, a reusable function
@@ -154,20 +157,6 @@ def load_mt_sites(mt_sites_pickle, emtf_path):
             pickle.dump(MT_sites, pkl)
         return MT_sites
 
-
-# --------------------------------------------------------------------------
-# Load and Prepare geomagnetic data
-# --------------------------------------------------------------------------
-def process_geomag_data(data_path):
-
-    # Load geomagnetic data
-    logging.info(f"Loading geomagnetic data from {data_path}")
-    mag_data = xr.open_dataset(data_path)
-    logging.info("Geomagnetic data loaded")
-
-    return mag_data
-
-
 # --------------------------------------------------------------------------
 # Load and Prepare transmission lines data
 # ----------------------------------------------------------------
@@ -253,45 +242,69 @@ def read_transmission_lines(translines_shp, trans_lines_pickle, site_xys):
 # --------------------------------------------------------------------------
 # Prepare the paths and load the datasets
 # --------------------------------------------------------------------------
-data_dir = Path("__file__").resolve().parent / "data"  # working dir
-emtf_path = data_dir / "EMTF"  # Path to EMTF data
-mt_sites_pickle = emtf_path / "mt_pickle.pkl"  # Path to pickled MT sites
-mag_data_path = data_dir / "processed_geomag_data.nc"  # Path to geomagnetic data
-translines_path = (
-    data_dir / "Electric__Power_Transmission_Lines"
-)  # Path to transmission lines data
-trans_lines_pickle = (
-    translines_path / "trans_lines_pickle.pkl"
-)  # Path to pickled transmission lines
-translines_shp = (
-    translines_path / "Electric__Power_Transmission_Lines.shp"
-)  # Path to transmission lines shapefile
+data_dir = Path(__file__).resolve().parent / "data"
+def load_data(start_date=None, end_date=None):
+    """
+    Load geomagnetic data, MT sites, and transmission line data.
 
-# Read storm periods data
-storm_data_loc = data_dir / "kp_ap_indices" / "storm_periods.csv"
-storm_df = pd.read_csv(storm_data_loc)
-storm_df["Start"] = pd.to_datetime(storm_df["Start"])
-storm_df["End"] = pd.to_datetime(storm_df["End"])
+    Parameters
+    ----------
+    start_date : str, optional
+        Start date for storm filtering (format: 'YYYY-MM-DD')
+    end_date : str, optional
+        End date for storm filtering (format: 'YYYY-MM-DD')
 
-# filter from 1985 to 2015
-# storm_df = storm_df[(storm_df["Start"] >= "1985-01-01") & (storm_df["End"] <= "2016-01-01")]
+    Returns
+    -------
+    tuple
+        magnetic_data : magnetic field data
+        MT_sites : MT site data
+        df : transmission line data
+        storm_df : storm period dataframe
+        obs_dict : observation dictionary for SECS
+    """
+    # Set up paths
+    emtf_path = data_dir / "EMTF"
+    mt_sites_pickle = emtf_path / "mt_pickle.pkl"
+    mag_data_path = data_dir / "processed_geomag_data.nc"
+    translines_path = data_dir / "Electric__Power_Transmission_Lines"
+    trans_lines_pickle = translines_path / "trans_lines_pickle.pkl"
+    translines_shp = translines_path / "Electric__Power_Transmission_Lines.shp"
 
-# Load datasets
-magnetic_data = process_geomag_data(mag_data_path)
-MT_sites = load_mt_sites(mt_sites_pickle, emtf_path)
+    # Load storm periods
+    storm_data_loc = data_dir / "kp_ap_indices" / "storm_periods.csv"
+    storm_df = pd.read_csv(storm_data_loc)
+    storm_df["Start"] = pd.to_datetime(storm_df["Start"])
+    storm_df["End"] = pd.to_datetime(storm_df["End"])
 
-# # Let's slice MT_sites for tersting (with 10 sites only)
-# MT_sites = MT_sites[:10]
-site_xys = [(site.latitude, site.longitude) for site in MT_sites]
+    # Filter storm data if dates provided
+    if start_date and end_date:
+        storm_df = storm_df[
+            (storm_df["Start"] >= start_date) & 
+            (storm_df["End"] <= end_date)
+        ]
 
-# Load transmission lines
-df = read_transmission_lines(translines_shp, trans_lines_pickle, site_xys)
+    # Load datasets
+    magnetic_data = xr.open_dataset(mag_data_path) # Load geomagnetic data
+    MT_sites = load_mt_sites(mt_sites_pickle, emtf_path)
+    
+    # Get site coordinates
+    site_xys = [(site.latitude, site.longitude) for site in MT_sites]
+
+    # Load transmission lines
+    df = read_transmission_lines(translines_shp, trans_lines_pickle, site_xys)
+    
+    # Prepare SECS observation dictionary
+    obs_dict = {
+        site.lower(): magnetic_data.sel(site=site) 
+        for site in magnetic_data.site.values
+    }
+
+    return magnetic_data, MT_sites, df, storm_df, obs_dict, site_xys
+
+# Data
+magnetic_data, MT_sites, df, storm_df, obs_dict, site_xys = load_data()
 n_trans_lines = df.shape[0]
-
-# Prepare data for SECS
-obs_dict = {
-    site.lower(): magnetic_data.sel(site=site) for site in magnetic_data.site.values
-}
 
 # %%
 # --------------------------------------------------------------------------
@@ -299,13 +312,8 @@ obs_dict = {
 # Compute the electric field and magnetic field at the MT sites
 # Adapted from pysecs by Greg Lucas
 # --------------------------------------------------------------------------
-from pysecs import SECS
-import datetime
-from shapely.geometry import LineString
 
 R_earth = 6371e3
-
-
 def calculate_SECS(B, obs_xy, pred_xy):
     """Calculate SECS output magnetic field
 
@@ -548,220 +556,6 @@ def process_storm(args):
         logging.error(f"Error processing storm {i + 1}: {e}")
         return i, None, None, None, None, None
 
-# # %%
-# # Process Gannon storm E fields
-# # %%
-# gannon_storm = storm_df[storm_df.Start == "2024-05-09 14:00:00"]
-
-# start_time, end_time = (gannon_storm.iloc[0]["Start"], gannon_storm.iloc[0]["End"])
-
-# t0 = time.time()
-
-# obs_xy = []
-# B_obs = []
-# names = []
-# site_xys = np.array([(site.latitude, site.longitude) for site in MT_sites])
-
-# # Greg Lucas detrending fit
-# # Detrending function
-# def detrend_polynomial(data, deg=2):
-#     """Detrends data with a polynomial fit along the time axis for each station and component."""
-#     timesteps, stations, components = data.shape
-#     xvals = np.arange(timesteps)  # Time indices (axis=0)
-
-#     # Prepare space for detrended data
-#     detrended_data = np.zeros_like(data)
-
-#     # Fit a polynomial for each station and component
-#     for i in range(stations):
-#         for j in range(components):
-#             # Fit the polynomial for the (time, station, component) slice
-#             poly_coeffs = np.polyfit(xvals, data[:, i, j], deg=deg)
-
-#             # Evaluate the polynomial (trend) for this slice
-#             trend = np.polyval(poly_coeffs, xvals)
-
-#             # Subtract the trend
-#             detrended_data[:, i, j] = data[:, i, j] - trend
-
-#     return detrended_data
-
-# # Filtering function (applies independently per station and component)
-# def filter_signal(data, sample_freq=1./60, lowcut=1e-4, highcut=1e-1, order=3):
-#     """Applies Butterworth filtering along the time axis for each station and component."""
-#     nyquist = 0.5 * sample_freq
-#     low = lowcut / nyquist
-#     high = highcut / nyquist
-
-#     # Choose filter type based on sample frequency
-#     if sample_freq > highcut:
-#         b, a = butter(order, [low, high], btype='band')
-#     else:
-#         b, a = butter(order, low, btype='highpass')
-
-#     # Apply the filter along the time axis for each station and component
-#     filtered_data = filtfilt(b, a, data, axis=0)
-#     return filtered_data
-
-# for name, dataset in obs_dict.items():
-#     data_xarr = dataset.loc[{"time": slice(start_time, end_time)}].interpolate_na("Time")
-#     if len(data_xarr["time"]) == 0:
-#         continue
-
-#     data = np.array(data_xarr.loc[{"time": slice(start_time, end_time)}].to_array().T)
-#     if np.any(np.isnan(data)):
-#         continue
-
-#     obs_xy.append((dataset.latitude, dataset.longitude))
-#     B_obs.append(data)
-    
-#     names.append(name)
-
-# obs_xy = np.squeeze(np.array(obs_xy))
-# B_obs = np.squeeze(np.array(B_obs)).transpose(2, 0, 1)
-
-# # # Step 1: Detrend the data independently for each station/component
-# # detrended_data = detrend_polynomial(B_obs, deg=2)
-
-# # # Step 2: Apply filtering to the detrended data
-# # filtered_data = filter_signal(detrended_data, sample_freq=1./60, lowcut=1e-4, highcut=1e-1, order=3)
-
-# # data = B_obs.copy()
-
-# # data = data - np.median(data, axis=0)
-# # B_obs = data
-
-# # %%
-# B_pred = calculate_SECS(B_obs, obs_xy, site_xys)
-# logging.info(f"Done calculating magnetic fields: {time.time() - t0}")
-
-# site_maxB = np.max(np.sqrt(B_pred[:, :, 0] ** 2 + B_pred[:, :, 1] ** 2), axis=0)
-
-# E_pred = np.zeros((len(B_obs), len(site_xys), 2))
-# for i, site in enumerate(MT_sites):
-#     Ex, Ey = site.convolve_fft(B_pred[:, i, 0], B_pred[:, i, 1], dt=60)
-#     E_pred[:, i, 0] = Ex
-#     E_pred[:, i, 1] = Ey
-
-# # %%
-# logging.info(f"Done calculating electric fields: {time.time() - t0}")
-# site_maxE_mags = np.sqrt(E_pred[:, :, 0] ** 2 + E_pred[:, :, 1] ** 2)
-# site_maxE = np.nanmax(site_maxE_mags, axis=0)
-# site_with_maxE = np.nanargmax(site_maxE)
-# time_site_maxE = np.nanargmax(site_maxE_mags[:, site_with_maxE])
-# e_pred_maxes = E_pred[time_site_maxE, np.arange(len(site_xys)), :]  
-
-# # %%
-# window_hours=(10/60)
-
-# # Convert window hours to number of samples (1 sample per minute)
-# window_samples = int(window_hours * 60)
-
-# # Calculate magnitude at each site and time
-# site_maxE_mags = np.sqrt(np.sum(E_pred**2, axis=2))
-
-# # Calculate the total magnitude across all sites
-# total_magnitude = np.nansum(site_maxE_mags, axis=1)
-
-# # Create a centered moving average
-# window = np.ones(window_samples) / window_samples
-# # smoothed_magnitude = np.convolve(total_magnitude, window, mode='same')
-# smoothed_magnitude = gaussian_filter1d(total_magnitude, sigma=window_samples//2)
-
-# # Find peaks in the smoothed data
-# peaks, _ = signal.find_peaks(
-#     smoothed_magnitude,
-#     distance=window_samples//2,  # Minimum distance between peaks
-#     prominence=0.2 * np.max(smoothed_magnitude)  # Minimum prominence
-# )
-
-# # %%
-# from scipy import signal
-
-# def find_storm_maximum(E_pred, window_hours=12):
-#     """
-#     Find storm maximum using windowed analysis of 1-minute resolution data.
-    
-#     Parameters:
-#     -----------
-#     E_pred : numpy.ndarray
-#         Array of shape (time, sites, components) containing E-field values at 1-min resolution
-#     window_hours : float
-#         Size of the analysis window in hours
-    
-#     Returns:
-#     --------
-#     dict containing:
-#         - optimal_time : int
-#             Index of the determined storm maximum
-#         - site_magnitudes : numpy.ndarray
-#             Magnitude at each site at the optimal time
-#     """
-#     # Convert window hours to number of samples (1 sample per minute)
-#     window_samples = int(window_hours * 60)
-    
-#     # Calculate magnitude at each site and time
-#     site_maxE_mags = np.sqrt(np.sum(E_pred**2, axis=2))
-    
-#     # Calculate the total magnitude across all sites
-#     total_magnitude = np.nansum(site_maxE_mags, axis=1)
-    
-#     # Create a centered moving average
-#     window = np.ones(window_samples) / window_samples
-#     # smoothed_magnitude = np.convolve(total_magnitude, window, mode='same')
-#     # smoothed_magnitude = np.convolve(total_magnitude, window, mode='same')
-#     smoothed_magnitude = gaussian_filter1d(total_magnitude, sigma=window_samples//2)
-    
-#     # Find peaks in the smoothed data
-#     peaks, _ = signal.find_peaks(
-#         smoothed_magnitude,
-#         distance=window_samples//2,  # Minimum distance between peaks
-#         prominence=0.2 * np.max(smoothed_magnitude)  # Minimum prominence
-#     )
-    
-#     if len(peaks) == 0:
-#         # If no peaks found, use the maximum point
-#         optimal_time = np.argmax(smoothed_magnitude)
-#     else:
-#         # Among the peaks, find the one with highest average in surrounding window
-#         peak_scores = []
-#         for peak in peaks:
-#             start_idx = max(0, peak - window_samples//2)
-#             end_idx = min(len(smoothed_magnitude), peak + window_samples//2)
-#             window_mean = np.mean(smoothed_magnitude[start_idx:end_idx])
-#             peak_scores.append(window_mean)
-        
-#         optimal_time = peaks[np.argmax(peak_scores)]
-    
-#     # Get data at the optimal time
-#     return {
-#         'optimal_time': optimal_time,
-#         'site_magnitudes': E_pred[optimal_time],
-#         'total_magnitude': total_magnitude[optimal_time],
-#         'smoothed_magnitude': smoothed_magnitude[optimal_time]
-#     }
-
-# e_pred_peak_data = find_storm_maximum(E_pred, window_hours=0.5)
-# peak_time = e_pred_peak_data['optimal_time']
-# e_pred_peak = E_pred[peak_time, :, :]
-
-# # %%
-# calcV = True
-# # e_pred = e_pred_peak.reshape(1, e_pred_peak.shape[0], e_pred_peak.shape[1])
-# e_pred = E_pred.copy()
-# if calcV:
-#     logging.info("Calculating voltages...")
-#     arr_delaunay = np.zeros(shape=(e_pred.shape[0], n_trans_lines))
-#     for i, tLine in enumerate(df.obj):
-#         arr_delaunay[:, i] = tLine.calc_voltages(e_pred, how="delaunay")
-#     line_maxV = np.squeeze(arr_delaunay)
-#     logging.info(f"Done calculating voltages: {time.time() - t0}")
-# else:
-#     logging.info("Skipping voltage calculation")
-#     line_maxV = np.zeros(n_trans_lines)
-
-# # %%
-# e_pred_gannon = np.sqrt(E_pred[:, :, 0] ** 2 + E_pred[:, :, 1] ** 2)
 
 # %%
 def main():

@@ -328,7 +328,7 @@ def build_substation_buses(
     return substation_buses
 
 
-# Get transformer data
+# Get transformer data using grid mapping exercise
 def get_transformer_data_evan(substation_buses, transformer_counts_dict):
 
     # Get transformer data using Evan's verified data
@@ -362,52 +362,6 @@ def get_transformer_data_evan(substation_buses, transformer_counts_dict):
             tf_nos.append(transformer_number)
 
     logger.info("Transformer data generated.")
-    return transformers_data
-
-
-# Randomly select transformer types for building admittance matrix
-def get_transformer_data(substation_buses):
-    """
-    Generate transformer data for the given substation buses.
-
-    Parameters:
-    - substation_buses (dict): A dictionary containing substation bus information.
-
-    Returns:
-    - transformers_data (list): A list of dictionaries containing transformer data.
-    """
-    # Function implementation goes here
-    pass
-
-    # Get transformer data
-    transformer_types = ["GY-D", "GY-GY", "GY-GY-D", "Auto"]
-
-    # Transformer generator number
-    transformer_gen_num = 0
-    transformers_data = []
-
-    for substation, values in substation_buses.items():
-        # Randomly select number of transformers (between 1 and 3)
-        tf_count = random.randint(1, 3)
-
-        # Randomly choose transformer types for each transformer at the substation
-        selected_transformers = random.choices(transformer_types, k=tf_count)
-
-        # Add transformers (up to 4 trafos connected in parallel)
-        for transformer_type in selected_transformers:
-            transformer_gen_num += 1
-            transformer_number = "T" + str(transformer_gen_num)
-
-            transformer_data = {
-                "sub_id": substation,
-                "name": transformer_number,
-                "type": transformer_type,
-                "bus1_id": values["hv_bus"],
-                "bus2_id": values["lv_bus"],
-            }
-
-            transformers_data.append(transformer_data)
-
     return transformers_data
 
 
@@ -528,6 +482,7 @@ def calculate_line_resistances(
 
     return df
 
+
 # %%
 # --------------------------------Build Admittance Matrix--------------------------------
 # We shall us LPm formulation to build the admittance matrix
@@ -543,6 +498,21 @@ def find_substation_name(bus, sub_ref):
 # %%
 # Build Y^n
 def add_admittance(Y, from_bus, to_bus, admittance):
+    """
+    Add admittance to the Y matrix.
+    Parameters:
+    - Y (numpy.ndarray): The admittance matrix.
+    - from_bus (int): The index of the "from" bus.
+    - to_bus (int): The index of the "to" bus.
+    - admittance (float): The admittance value to be added.
+    Returns:
+    - None
+    Notes:
+    - This function modifies the admittance matrix in-place by adding the given admittance value to the appropriate elements.
+    - The admittance value is added to the diagonal elements corresponding to the "from" and "to" buses.
+    - If the "from" bus is different from the "to" bus, the admittance value is also subtracted from the off-diagonal elements.
+    """
+
     i, j = from_bus, to_bus
     Y[i, i] += admittance
     if i != j:
@@ -552,6 +522,19 @@ def add_admittance(Y, from_bus, to_bus, admittance):
 
 
 def add_admittance_auto(Y, from_bus, to_bus, neutral_bus, Y_series, Y_common):
+    """
+    Add admittance values to the admittance matrix if an Auto transformer.
+    Parameters:
+    - Y (numpy.ndarray): The admittance matrix.
+    - from_bus (int): The index of the "from" bus.
+    - to_bus (int): The index of the "to" bus.
+    - neutral_bus (int): The index of the neutral bus.
+    - Y_series (float): The admittance value for the series connection.
+    - Y_common (float): The admittance value for the common connection.
+    Returns:
+    None
+    """
+
     i, j, k = to_bus, from_bus, neutral_bus
     add_admittance(Y, from_bus, neutral_bus, Y_common)
     add_admittance(Y, from_bus, to_bus, Y_series)
@@ -707,7 +690,7 @@ def process_substation_buses(data_loc, evan_data=False):
         ss_type_dict,
         transformer_counts_dict,
         ss_role_dict,
-    ) = load_and_process_data(data_loc)  
+    ) = load_and_process_data(data_loc)
 
     # File paths
     substation_buses_pkl = data_loc / "substation_buses.pkl"
@@ -852,7 +835,14 @@ def process_substation_buses(data_loc, evan_data=False):
 
 
 def random_admittance_matrix(
-    substation_buses, bus_ids_map, sub_look_up, df_lines, substations_df, evan_data=False,transformer_counts_dict=None
+    substation_buses,
+    df_transformers,
+    bus_ids_map,
+    sub_look_up,
+    df_lines,
+    substations_df,
+    evan_data=False,
+    transformer_counts_dict=None,
 ):
     # ..................................................
     # Create a dictionary to store the resistance values
@@ -869,12 +859,12 @@ def random_admittance_matrix(
         "GY-D": {"pri": 0.05, "sec": 0.1},
     }
 
-    transformers_data = get_transformer_data(substation_buses)
     if evan_data:
-        transformers_data = get_transformer_data_evan(substation_buses, transformer_counts_dict)
-
-    # Create a transformer df
-    df_transformers = pd.DataFrame(transformers_data)
+        transformers_data = get_transformer_data_evan(
+            substation_buses, transformer_counts_dict
+        )
+        # Create a transformer df
+        df_transformers = pd.DataFrame(transformers_data)
 
     # Transformer W1 and W2
     df_transformers["W1"] = df_transformers["type"].apply(

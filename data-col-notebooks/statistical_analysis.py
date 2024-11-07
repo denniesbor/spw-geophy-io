@@ -323,7 +323,7 @@ def process_site(site_data, n_samples, n_years, return_periods, quantity):
 
 
 def bootstrap_analysis(
-    maxB_arr, n_samples=100, n_years=39, return_periods=[100, 500, 1000], quantity="B"
+    maxB_arr, n_samples=100, n_years=39, return_periods=None, quantity="B"
 ):
     n_sites = maxB_arr.shape[0]
 
@@ -375,6 +375,7 @@ def confidence_limits(results, return_periods):
     # Calculate confidence intervals
     confidence_intervals = calculate_confidence_intervals(results)
     for period in return_periods:
+        period = int(period)
         lower, median, upper = confidence_intervals[period]
         valid_sites = np.sum(~np.isnan(median))
         logging.info(f"{period}-year event (valid sites: {valid_sites}/{len(median)}):")
@@ -399,9 +400,9 @@ def confidence_limits(results, return_periods):
 # ---------------------------------------------------------------
 n_samples = 100
 return_periods = np.arange(25, 1001, 25)
-resuls_B_path = data_dir / "results_B_2.pkl"
-resuls_E_path = data_dir / "results_E_2.pkl"
-resuls_V_path = data_dir / "results_V_2.pkl"
+resuls_B_path = data_dir / "results_B_return_periods.pkl"
+resuls_E_path = data_dir / "results_E_return_periods.pkl"
+resuls_V_path = data_dir / "results_V_return_periods.pkl"
 
 
 # ---------------------------------------------------------------
@@ -435,16 +436,16 @@ confidence_limits(results_V, return_periods)
 
 
 # ---------------------------------------------------------------
-# Calculate statistical predictions for 50/100/500/1000-year events
+# Calculate statistical predictions for examined return periods
 # ---------------------------------------------------------------
-def extract_confidence_medians(results):
+def extract_confidence_medians(results, return_periods):
     ci = calculate_confidence_intervals(results)
-    return {year: ci[year][1] for year in [100, 250, 500, 1000]}
+    return {year: ci[year][1] for year in return_periods}
 
 
-results_B_ci = extract_confidence_medians(results_B)
-results_E_ci = extract_confidence_medians(results_E)
-results_V_ci = extract_confidence_medians(results_V)
+results_B_ci = extract_confidence_medians(results_B,  return_periods)
+results_E_ci = extract_confidence_medians(results_E, return_periods)
+results_V_ci = extract_confidence_medians(results_V, return_periods)
 
 
 # ---------------------------------------------------------------
