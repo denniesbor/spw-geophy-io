@@ -662,6 +662,52 @@ def get_and_solve_cholesky_wrapper(args):
     return v_n
 
 
+def parallel_nodal_voltage_calculation(Y_total, injections_data):
+    """
+    Perform parallel nodal voltage calculations for multiple injection datasets.
+
+    Parameters:
+    - Y_total: The admittance matrix (Y matrix) for the system.
+    - injections_data: Dictionary containing various injection data.
+
+    Returns:
+    - results: Dictionary of calculated voltages for each dataset.
+    """
+    logger.info("Preparing tasks for parallel nodal voltage calculation...")
+
+    # List of tasks for parallel execution (filter out None tasks)
+    tasks = [
+        (name, injections_data.get(name))
+        for name in ["gannon", "V_100", "V_500", "V_1000"]
+    ]
+    tasks = [(name, data) for name, data in tasks if data is not None]
+
+    if not tasks:
+        logger.error("No valid injection data provided.")
+        return {}
+    # Prepare the data for multiprocessing
+    task_data = [(Y_total, t[1]) for t in tasks]
+
+    logger.info("Solving for nodal voltages...")
+
+    # Use Pool for parallel computation
+    with Pool(processes=min(cpu_count(), len(tasks))) as pool:
+        try:
+            # Solve the system for each injection dataset in parallel
+            results = {
+                name: result
+                for name, result in zip(
+                    [t[0] for t in tasks],
+                    pool.map(get_and_solve_cholesky_wrapper, task_data),
+                )
+            }
+            logger.info("Nodal voltages solved successfully.")
+            return results
+        except Exception as e:
+            logger.error(f"Error during parallel execution: {str(e)}")
+            return {}
+
+
 def parallel_gic_calculation_and_processing(
     Y_e, nodal_voltages, non_zero_indices, n_nodes, data_loc, filename
 ):
@@ -715,17 +761,40 @@ def parallel_gic_calculation_and_processing(
 def nodal_voltage_calculation(Y_total, injections_data):
     """
     Optimized sequential GPU solver with batching and memory reuse.
+    Uses float16 where possible for memory efficiency while maintaining numerical stability.
     """
     cp.get_default_memory_pool().free_all_blocks()
 
-    try:
-        # Pre-transfer Y_total to GPU once - since it's used for all calculations
-        # Convert to float32 when transferring to GPU
-        Y_gpu = cp.asarray(Y_total, dtype=cp.float32)
-        regularization = cp.float32(1e-6)
-        Y_reg = Y_gpu + cp.eye(Y_gpu.shape[0], dtype=cp.float32) * regularization
+    def can_use_float16(arr):
+        """Check if array values are within float16 range"""
+        if isinstance(arr, cp.ndarray):
+            max_abs = cp.max(cp.abs(arr))
+            min_abs = (
+                cp.min(cp.abs(arr[arr != 0])) if cp.any(arr != 0) else cp.float32(0)
+            )
+        else:
+            max_abs = np.max(np.abs(arr))
+            min_abs = (
+                np.min(np.abs(arr[arr != 0])) if np.any(arr != 0) else np.float32(0)
+            )
 
-        # Pre-compute Cholesky decomposition since Y_total is constant
+        # Check if values are within float16 range
+        return (max_abs < 65504 and min_abs > 6.1e-5) or max_abs == 0
+
+    try:
+        # Check if Y_total can use float16
+        y_dtype = cp.float16 if can_use_float16(Y_total) else cp.float32
+        Y_gpu = cp.asarray(Y_total, dtype=y_dtype)
+
+        # Regularization - keep in float32 for stability
+        regularization = cp.float32(1e-6)
+        # Convert to float32 for matrix operations
+        Y_reg = (
+            Y_gpu.astype(cp.float32)
+            + cp.eye(Y_gpu.shape[0], dtype=cp.float32) * regularization
+        )
+
+        # Cholesky decomposition needs float32 for stability
         L = cp.linalg.cholesky(Y_reg)
 
         scenarios = ["V_gannon"] + [f"V_{period}" for period in return_periods]
@@ -734,27 +803,42 @@ def nodal_voltage_calculation(Y_total, injections_data):
 
         results = {}
 
-        # Preallocate GPU memory for reuse, assuming all injections have the same shape and dtype
+        # Preallocate GPU memory
         if tasks:
             sample_shape = tasks[0][1].shape
-            sample_dtype = tasks[0][1].dtype
-            injection_gpu = cp.empty(sample_shape, dtype=cp.float32)
+            sample_data = tasks[0][1]
+
+            # Check if injections can use float16
+            inj_dtype = cp.float16 if can_use_float16(sample_data) else cp.float32
+            injection_gpu = cp.empty(sample_shape, dtype=inj_dtype)
 
         for name, injections in tasks:
             try:
-                # Ensure the shape and dtype of `injections` match the preallocated `injection_gpu`
-                if injections.shape != sample_shape or injections.dtype != sample_dtype:
+                # Check if current injection can use float16
+                curr_dtype = cp.float16 if can_use_float16(injections) else cp.float32
+
+                # Reallocate if shape or dtype doesn't match
+                if (
+                    injections.shape != sample_shape
+                    or injection_gpu.dtype != curr_dtype
+                ):
                     logger.warning(
                         f"Shape or dtype mismatch for {name}, reallocating GPU memory."
                     )
-                    injection_gpu = cp.asarray(injections, dtype=cp.float32)
+                    injection_gpu = cp.asarray(injections, dtype=curr_dtype)
                 else:
-                    # Reuse preallocated GPU memory
-                    cp.copyto(injection_gpu, cp.asarray(injections, dtype=cp.float32))
+                    cp.copyto(injection_gpu, cp.asarray(injections, dtype=curr_dtype))
+
+                # Convert to float32 for solving the system
+                injection_float32 = injection_gpu.astype(cp.float32)
 
                 # Solve system using pre-computed Cholesky decomposition
-                P = cp.linalg.solve(L, injection_gpu)
+                P = cp.linalg.solve(L, injection_float32)
                 V_n = cp.linalg.solve(L.T, P)
+
+                # Check if result can be stored in float16
+                if can_use_float16(V_n):
+                    V_n = V_n.astype(cp.float16)
 
                 # Transfer result back to CPU
                 results[name] = cp.asnumpy(V_n)
@@ -772,7 +856,7 @@ def nodal_voltage_calculation(Y_total, injections_data):
         return results
 
     except Exception as e:
-        logger.error(f"GPU initialization error: {str(e)}")
+        logger.error(f"{str(e)} Switching to CPU computation...")
         return {}
 
 
@@ -855,8 +939,103 @@ def samples(
 
     return all_samples
 
+    # %%
+# # Load the data
+# # Data loc
+# data_loc = Path.cwd() / "data"
+# results_path = "geomagnetic_data_return_periods.h5"
 
+# # Get substation buses data
+# substation_buses, bus_ids_map, sub_look_up, df_lines, df_substations_info = (
+# process_substation_buses(data_loc)
+# )
+
+# # Load and process transmission line data
+# df_lines.drop(columns=["geometry"], inplace=True)
+# df_lines["name"] = df_lines["name"].astype(np.int32)
+
+# transmission_line_path = (
+# data_loc / "Electric__Power_Transmission_Lines" / "trans_lines_pickle.pkl"
+# )
+
+# # %%
+# with open(transmission_line_path, "rb") as p:
+#     trans_lines_gdf = pickle.load(p)
+
+
+# # %%
+# trans_lines_gdf["line_id"] = trans_lines_gdf["line_id"].astype(np.int32)
+# df_lines = df_lines.merge(
+# trans_lines_gdf[["line_id", "geometry"]], right_on="line_id", left_on="name"
+# )
+
+# # Create a dictionary for quick substation lookup
+# sub_ref = dict(zip(df_substations_info.name, df_substations_info.buses))
+
+# trafos_data = samples(substation_buses)
+
+# # Load and process GIC data
+# (
+# df_lines,
+# mt_coords,
+# mt_names,
+# e_fields,
+# b_fields,
+# v_fields,
+# gannon_e,
+# ) = load_and_process_gic_data(data_loc, df_lines, results_path)
+
+# # %%
+# n_nodes = len(sub_look_up)  # Number of nodes in the network
+# # cLear gpu memory"""  """
+
+# # Get 1000 dfs of winding GICs and np gics
+# for i, trafo_data in enumerate(trafos_data):
+
+#     # Save the GIC DataFrame
+#     filename = data_loc / f"winding_gic_rand_{i}.csv"
+
+#     logger.info(f"Processing iteration {i}...")
+#     # Generate a random admittance matrix
+#     logger.info("Generating random admittance matrix...")
+
+#     Y_n, Y_e, df_transformers = random_admittance_matrix(
+#         substation_buses,
+#         trafo_data,
+#         bus_ids_map,
+#         sub_look_up,
+#         df_lines,
+#         df_substations_info,
+#     )
+
+#     # Find indices of rows/columns where all elements are zero in the admittance mat
+#     zero_row_indices = np.where(np.all(Y_n == 0, axis=1))[0]  # Zero rows
+#     zero_col_indices = np.where(np.all(Y_n == 0, axis=0))[0]  # Zero columns
+
+#     # Get the non-zero row/col indices
+#     non_zero_indices = np.setdiff1d(np.arange(Y_n.shape[0]), zero_row_indices)
+
+#     # Reduce the Y_n and Y_e matrices
+#     Y_n = Y_n[np.ix_(non_zero_indices, non_zero_indices)]
+#     Y_e = Y_e[np.ix_(non_zero_indices, non_zero_indices)]
+
+#     # Y total is summ of earthing and network impedances
+#     Y_total = Y_n + Y_e
+#     # Get injections data
+#     injections_data = get_injection_currents(
+#         df_lines, n_nodes, non_zero_indices, sub_look_up, data_loc
+#     )
+
+#     break
+
+
+# # %%
+# # Clear memnory
+# cp.get_default_memory_pool().free_all_blocks()
+
+# nodal_voltages = nodal_voltage_calculation(Y_total, injections_data)
 # %%
+
 def main(generate_grid=False):
 
     # Load the data
