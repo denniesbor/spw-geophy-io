@@ -109,3 +109,148 @@ body {
 .ui-button:hover {
   background: rgb(235, 235, 235);
 }
+
+#markers {
+  display: none;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto; /* To handle overflow if the markers don't fit in one line */
+  padding: 10px;
+  background-color: #f0f0f0;
+}
+
+.marker,
+#disableMarkerAddingButton,
+#saveMarkers {
+  padding: 10px;
+  margin: 5px;
+  background-color: #007bff; /* Original bluish color */
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  flex: 0 0 auto; /* Ensure markers stay on one line */
+}
+
+#disableMarkerAddingButton {
+  background-color: #dc3545; /* Red color */
+}
+
+#saveMarkers {
+  background-color: #28a745; /* Green color */
+}
+
+.marker.selected {
+  background-color: #0056b3; /* Toned down bluish color */
+  cursor: not-allowed; /* Change cursor to not-allowed */
+}
+
+.marker-disabled {
+  cursor: not-allowed; /* Change cursor to not-allowed */
+}
+
+button:disabled {
+  background-color: grey;
+  cursor: not-allowed;
+}
+
+.marker:hover {
+  background-color: #0056b3; /* Slight change on hover for better UX */
+}
+/* Basic styling for the popup */
+.popup {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  background: white;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  z-index: 1000;
+  border-radius: 10px;
+}
+
+/* Visible class to display the popup */
+.popup.visible {
+  display: block;
+}
+
+/* Overlay styling */
+.overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 500;
+}
+
+.overlay.visible {
+  display: block;
+}
+
+/* Styling for the popup header */
+.popup h3 {
+  margin-top: 0;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Styling for the checkboxes and their labels */
+.popup div {
+  margin-bottom: 15px;
+}
+
+.popup input[type="checkbox"] {
+  margin-right: 10px;
+}
+
+.popup label {
+  font-size: 14px;
+}
+
+/* Styling for the operation dropdown */
+#operationContainer {
+  margin-bottom: 15px;
+}
+
+#operationDropdown {
+  width: 100%;
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+/* Styling for the buttons */
+.popup button {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#confirmSaveButton {
+  background-color: #4caf50;
+  color: white;
+  margin-bottom: 10px;
+}
+
+#cancelButton {
+  background-color: #f44336;
+  color: white;
+}
+
+#confirmSaveButton:hover {
+  background-color: #45a049;
+}
+
+#cancelButton:hover {
+  background-color: #e53935;
+}

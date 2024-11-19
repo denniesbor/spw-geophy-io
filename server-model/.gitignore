@@ -1,0 +1,74 @@
+# Django project files
+*.pyc
+*.pyo
+__pycache__/
+*.sqlite3
+
+# Django static files
+staticfiles/
+*.css
+*.js
+
+# Django media files
+media/
+
+# Django secret key
+.env
+
+# Django development server
+.env.dev
+
+# Django production server
+.env.prod
+
+# Django database configuration
+.env.db
+
+# Django migrations
+*/migrations/
+
+# Django test database
+test_db.sqlite3
+
+# Django coverage reports
+htmlcov/
+
+# Django logs
+logs/
+
+# Django virtual environment
+.env/
+
+# Django IDE files
+.vscode/
+.idea/
+
+# Django cache
+__pycache__/
+
+# Django compiled Python files
+*.pyc
+*.pyo
+*.pyd
+
+# Django local development settings
+local_settings.py
+
+# Django database configuration
+db.sqlite3
+
+# Django test database
+test_db.sqlite3
+
+# Django coverage reports
+htmlcov/
+
+# Django logs
+logs/
+
+# Django virtual environment
+.venv/
+
+# Django IDE files
+.vscode/
+.idea/

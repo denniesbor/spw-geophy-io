@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>spaceGUARD</title>
+    <title>spw-geophy-io</title>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
     <script type="module" src="./main.js"></script>
   </head>
@@ -10,13 +10,18 @@
       <h2>Mapping Transmission Lines and Substations in the United States</h2>
     </div>
     <div class="main-body">
-      <div class="selection-rectangle" id="selectionRectangle"></div>
+      <!-- <div class="selection-rectangle" id="selectionRectangle"></div> -->
       <div id="controls">
         <select id="regionDropdown"></select>
         <select id="ssDropdown"></select>
         <label>
           <input type="checkbox" id="toggleLines" /> Show Transmission Lines
         </label>
+        <label>
+          <input type="checkbox" id="toggleSubstationLabels" /> Add/Edit
+          Substation Labels
+        </label>
+
         <!-- <button id="captureButton">Capture Map</button> -->
       </div>
       <div id="infoBox" class="info-box">
@@ -27,6 +32,53 @@
           <strong>Connected Line Voltages:</strong>
           <span id="lineVoltages"></span>
         </p>
+      </div>
+      <div class="markerContainer">
+        <!-- Check if markers exist else add -->
+        <p id="markerMessage"></p>
+
+        <!-- Marker buttons -->
+        <div id="markers">
+          <div class="marker" id="three_ph_transformer">3 Ph Transformer</div>
+          <div class="marker" id="single_ph_transformer">
+            Single Ph Transformer
+          </div>
+          <div class="marker" id="circuit_breaker">Circuit Breaker</div>
+          <div class="marker" id="primary_power_line">Primary Power Line</div>
+          <div class="marker" id="sec_power_line">Secondary Power Line</div>
+          <div class="marker" id="control_building">Control Building</div>
+          <button id="disableMarkerAddingButton">Done Adding Markers</button>
+          <button id="saveMarkers">Save Markers</button>
+        </div>
+        <!-- Save the mrkers popup -->
+        <!-- Overlay -->
+        <div id="overlay" class="overlay"></div>
+
+        <!-- Popup Card -->
+        <div id="savePopup" class="popup">
+          <h3>Save Options</h3>
+          <div>
+            <input type="checkbox" id="downloadCheckbox" checked />
+            <label for="downloadCheckbox">Download JSON File</label>
+          </div>
+          <div>
+            <input type="checkbox" id="sendToDatabaseCheckbox" checked />
+            <label for="sendToDatabaseCheckbox">Send to Database</label>
+          </div>
+          <div id="userContainer">
+            <!-- Label and dropdown will be added here dynamically -->
+          </div>
+          <div id="errorMessage" style="color: red; display: none">
+            Cannot save because the markers list is empty or contains invalid
+            labels. Check 'Allow Save When Empty' to proceed.
+          </div>
+          <div id="allowEmptyContainer" style="display: none">
+            <label for="allowEmptyCheckbox">Allow Save When Empty:</label>
+            <input type="checkbox" id="allowEmptyCheckbox" />
+          </div>
+          <button id="confirmSaveButton" disabled>Save</button>
+          <button id="cancelButton">Cancel</button>
+        </div>
       </div>
       <div id="map"></div>
     </div>

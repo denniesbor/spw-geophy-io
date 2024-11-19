@@ -2,7 +2,7 @@ name: Deploy static content to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["testing"]
   workflow_dispatch:
 
 permissions:
@@ -32,21 +32,21 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
-          cache-dependency-path: ./data-col-api/package-lock.json
+          cache-dependency-path: ./frontend/package-lock.json
 
       - name: Install dependencies
         run: npm install
-        working-directory: ./data-col-api
+        working-directory: ./frontend
 
       - name: Build
         run: npm run build
         env:
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-        working-directory: ./data-col-api
+        working-directory: ./frontend
 
       - name: Rename build output to docs
         run: mv dist docs
-        working-directory: ./data-col-api
+        working-directory: ./frontend
 
       - name: Setup Pages
         uses: actions/configure-pages@v3
@@ -54,7 +54,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: ./data-col-api/docs
+          path: ./frontend/docs
 
       - name: Deploy to GitHub Pages
         id: deployment
