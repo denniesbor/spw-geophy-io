@@ -1,6 +1,6 @@
-# Statistical Analysis Workflow
+# Coupled Physics-Engineering-Economic Models for Impact Assessment of Space Weather Hazards
 
-This documentation outlines the step-by-step process for running statistical analysis on geomagnetic data and its impact. The figure below is a box diagram of the method.
+This documentation outlines the step-by-step process for running statistical analysis on geomagnetic data and the socio-economic impact assessment of space weather hazards on power infrastructure within the US. The figure below is a box diagram of the method.
 ![Method Box](./figures/method-box.png)
 
 ## Dataset Setup
