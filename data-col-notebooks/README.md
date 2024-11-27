@@ -47,14 +47,6 @@ Before beginning (if you wish to generate the datafiles by yourself), ensure all
 
 ### 1. Calculate Storm Maximums
 
-**Script**: `calculate_storm_maxes.py`
-
-[Rest of your documentation...]
-
-## Detailed Workflow
-
-### 1. Calculate Storm Maximums
-
 Download the necessary data from zenodo at [Zenodo]()
 **Script**: `calculate_storm_maxes.py`
 
