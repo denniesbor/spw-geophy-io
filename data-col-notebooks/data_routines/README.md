@@ -4,7 +4,7 @@ I have provided routines and scripts to download data from USGS and NRCAN FTP se
 
 ## USGS Geomagnetic Data
 
-USGS data, accessible from [USGS Geomag](insert_link_here), is straightforward to obtain, especially for data before 1989.
+USGS data, accessible from [USGS Geomag](https://geomag.usgs.gov/ws/docs), is straightforward to obtain, especially for data before 1989.
 
 ## NRCAN Geomagnetic Data
 
@@ -27,3 +27,9 @@ We have used open data available for US transmission lines, accessible from [Tra
 ## Substations Data
 
 The substations data is queried from OpenStreetMap. The script to fetch this data is provided separately.
+
+## Geomagnetic Indices
+The Dst data is manually downloaded from Kyoto WDC from 1985 to 2024. This data is manually downloaded and saved into a text file for loading while running the `identify_storm_periods.py`. Moreover, the Kp data is automatically queried by the script from [GFZ Potsdam](https://kp.gfz-potsdam.de/kpdata?startdate=1980-01-01).
+
+## Automated Shell scripts
+Set up a cron job to repeatedly download the files by running `download_nrcan_old.sh`. I have manually looped and set a timer in the script. If it is computationally intensive, you can disable the loop in the bash scripts. Once the data is loaded, run the `process_geomag_data.py` and `process_tl_sub.py` for statistical analysis in the next phase.
