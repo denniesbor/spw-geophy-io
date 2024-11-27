@@ -47,7 +47,7 @@ Before beginning (if you wish to generate the datafiles by yourself), ensure all
 
 ### 1. Calculate Storm Maximums
 
-Download the necessary data from zenodo at [Zenodo]()
+Download the necessary data from zenodo at [Zenodo](https://zenodo.org/records/14231083/files/data_loc.tar.gz?download=1)
 **Script**: `calculate_storm_maxes.py`
 
 This script calculates maximum values for three key parameters at magnetotelluric sites and transmission lines:
