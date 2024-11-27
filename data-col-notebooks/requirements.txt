@@ -1,0 +1,16 @@
+Package         Version
+--------------- --------
+bezpy           0.1.1
+Cartopy         0.24.1
+cftime          1.6.4
+cupy-cuda12x    13.3.0
+geopandas       1.0.1
+h5              0.9.3
+ipykernel       6.29.5
+memory-profiler 0.61.0
+obspy           1.4.1
+pip             24.0
+powerlaw        1.5
+pysecs          0.2.0
+tqdm            4.66.5
+xarray          2024.9.0
