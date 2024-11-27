@@ -1,7 +1,7 @@
 # Statistical Analysis Workflow
 
 This documentation outlines the step-by-step process for running statistical analysis on geomagnetic data and its impact. The figure below is a box diagram of the method.
-![Method Box](/figures/method-box.png)
+![Method Box](./figures/method-box.png)
 
 ## Dataset Setup
 
