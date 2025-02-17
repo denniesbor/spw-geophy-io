@@ -45,8 +45,7 @@ jobs:
         working-directory: ./frontend
 
       - name: Rename build output to docs
-        run: mv dist docs
-        working-directory: ./frontend
+        run: mv ./frontend/dist ./frontend/docs
 
       - name: Verify build output
         run: ls -la ./frontend/docs
@@ -57,14 +56,14 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: github-pages  # Ensure this matches the expected artifact name
+          name: github-pages-${{ github.run_id }} # Unique artifact name
           path: ./frontend/docs
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1
         with:
-          artifact_name: github-pages  # Ensure this matches the upload name
+          artifact_name: github-pages-${{ github.run_id }} # Match upload name
 
       - name: Output deployment URL
         run: echo "Deployed to ${{ steps.deployment.outputs.page_url }}"
