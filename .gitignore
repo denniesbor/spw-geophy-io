@@ -2,5 +2,5 @@ misc
 otherDatasets
 venv
 py_scripts/data
-
-#
+# data/econ_data
+data/geomag_data
