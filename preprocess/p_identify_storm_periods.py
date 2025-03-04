@@ -1,4 +1,3 @@
-# %%
 import os
 import logging
 import pandas as pd
@@ -16,8 +15,6 @@ kp_dst_path.mkdir(parents=True, exist_ok=True)
 
 print("Working directory:", data_loc)
 
-
-# %%
 def download_file(url, file_path):
     """Download a file from a given URL and save it to the specified path."""
     response = requests.get(url)
@@ -28,6 +25,25 @@ def download_file(url, file_path):
 
 
 def parse_combined_kp_ap_file(file_path):
+    """
+    Parses a combined Kp and Ap index data file into a pandas DataFrame.
+
+    The input file is expected to be space-separated and contain columns corresponding 
+    to year, month, day, hour, fractional hour, two decimal date values, Kp and Ap indices, 
+    and a flag. The function reads this file and processes the data by adding:
+    - A derived "Kp_0to9" column, where the Kp index is scaled to an integer range of 0 to 9.
+    - A "Datetime" column created from the year, month, day, and hour columns.
+
+    Parameters:
+    file_path (str): Path to the input file containing Kp and Ap index data.
+
+    Returns:
+    pd.DataFrame: A DataFrame containing the parsed data with the following columns:
+        - Year, Month, Day, Hour, FracHour, DecimalDate1, DecimalDate2, Kp, Ap, Flag
+        - Kp_0to9: The Kp index scaled to an integer range of 0-9.
+        - Datetime: A datetime representation of the timestamp.
+
+    """
     columns = [
         "Year",
         "Month",
@@ -43,6 +59,7 @@ def parse_combined_kp_ap_file(file_path):
     kp_df = pd.read_csv(file_path, sep="\s+", header=None, names=columns)
     kp_df["Kp_0to9"] = (kp_df["Kp"] * 3).round().astype(int)
     kp_df["Datetime"] = pd.to_datetime(kp_df[["Year", "Month", "Day", "Hour"]])
+
     return kp_df
 
 
@@ -250,101 +267,100 @@ def main():
     # Visualize the storm periods
     visualize_storm_periods(dst_df, kp_df)
 
-
-# %% 
-# Greg lucas identify storms
-# def greg_identify_storms():
+    # Following the method of Greg Lucas to identify storms
     # Download and process KP data
-kp_url = "https://kp.gfz-potsdam.de/kpdata?startdate=1980-01-01&enddate=2024-09-16&format=kp2#kpdatadownload-143"
-kp_file_path = kp_dst_path / "kpdata.txt"
-download_file(kp_url, kp_file_path)
+    kp_url = "https://kp.gfz-potsdam.de/kpdata?startdate=1980-01-01&enddate=2024-09-16&format=kp2#kpdatadownload-143"
+    kp_file_path = kp_dst_path / "kpdata.txt"
+    if not os.path.exists(kp_file_path):
+        download_file(kp_url, kp_file_path)
 
-kp_df = parse_combined_kp_ap_file(kp_file_path)
-analyze_kp_ap_data(kp_df)
-print("\nKP Analysis complete. Check the current directory for output plots.")
+    # Parse out the kp file
+    kp_df = parse_combined_kp_ap_file(kp_file_path)
+    analyze_kp_ap_data(kp_df)
+    print("\nKP Analysis complete. Check the current directory for output plots.")
 
-# The DST data has been downloaded and manually saved to a file named 'dst_data.txt'.
-# The data is downloaded from Kyoto World Data Center for Geomagnetism.
-# Couldn't script the download as the server restricts to 25 years of data.
-# Had to partially download the files and merge them manually as .txt
-dst_file_path = kp_dst_path / "dst_data.txt"
-dst_df = parse_dst_file(dst_file_path)
-dst_df = process_dst_data(dst_df)
+    # The DST data has been downloaded and manually saved to a file named 'dst_data.txt'.
+    # The data is downloaded from Kyoto World Data Center for Geomagnetism.
+    # The download cannot be scripted as the server restricts to 25 years of data.
+    # Had to partially download the files and merge them manually as .txt
+    dst_file_path = kp_dst_path / "dst_data.txt"
+    dst_df = parse_dst_file(dst_file_path)
+    dst_df = process_dst_data(dst_df)
 
-# Set Datetime as index for KP data
-kp_df.set_index("Datetime", inplace=True)
+    # Set Datetime as index for KP data
+    kp_df.set_index("Datetime", inplace=True)
 
-import datetime
+    import datetime
 
-dst_df['Kp'] = kp_df['1957':'2025']['Kp'].resample('1H').ffill()
-storm_time_df = dst_df['1985':'2025'].copy()
-storm_time_df['storm'] = False
+    dst_df['Kp'] = kp_df['1957':'2025']['Kp'].resample('1H').ffill()
+    storm_time_df = dst_df['1985':'2025'].copy()
+    storm_time_df['storm'] = False
 
-delta_t = datetime.timedelta(days=1.5)
+    delta_t = datetime.timedelta(days=1.5)
 
-list_of_times = []
+    list_of_times = []
 
-#for i in range(100):
-curr_dst = -1000
-while curr_dst < -140:
-    dsts = storm_time_df[~storm_time_df['storm']]['DST']
-    dst_min = dsts.idxmin()
-    storm_time_df.loc[dst_min-delta_t:dst_min+delta_t,'storm'] = True
-    curr_dst = storm_time_df.loc[dst_min,'DST']
-    #print(dst_min, curr_dst)
-    list_of_times.append(dst_min)
-    
-curr_kp = 10
-while curr_kp >= 8:
-    kp = storm_time_df[~storm_time_df['storm']]['Kp']
-    kp_max = kp.idxmax()
-    storm_time_df.loc[kp_max-delta_t:kp_max+delta_t,'storm'] = True
-    curr_kp = storm_time_df.loc[kp_max,'Kp']
-    #print(dst_min, curr_dst)
-    list_of_times.append(kp_max)
-    
-print("Initial number of storms", len(list_of_times))
-temp = storm_time_df['storm']
-# first row is a True preceded by a False
-fst = temp.index[temp & ~ temp.shift(1).fillna(False)]
-
-# last row is a True followed by a False
-lst = temp.index[temp & ~ temp.shift(-1).fillna(False)]
-
-storm_times = []
-for i in range(len(fst)):
-    delta_t = lst[i]-fst[i]
-    # Storm width in hours
-    storm_hours = delta_t.days*24 + delta_t.seconds/3600
-    if storm_hours < 3: continue
+    #for i in range(100):
+    curr_dst = -1000
+    while curr_dst < -140:
+        dsts = storm_time_df[~storm_time_df['storm']]['DST']
+        dst_min = dsts.idxmin()
+        storm_time_df.loc[dst_min-delta_t:dst_min+delta_t,'storm'] = True
+        curr_dst = storm_time_df.loc[dst_min,'DST']
+        #print(dst_min, curr_dst)
+        list_of_times.append(dst_min)
         
-    storm_times.append((fst[i], lst[i]))
-    
-print("Number of storms after combining overlapping times:", len(storm_times))
-
-nDst = 0
-nKp = 0
-nBoth = 0
-for x in storm_times:
-    maxKp = storm_time_df.loc[x[0]:x[1]]['Kp'].max()
-    minDst = storm_time_df.loc[x[0]:x[1]]['DST'].min()
-    if maxKp >= 8 and minDst <= -140:
-        nBoth += 1
-    elif maxKp >= 8:
-        nKp += 1
-    elif minDst <= -140:
-        nDst += 1
-    else:
-        print("Error, shouldn't get here!", maxKp, minDst)
+    curr_kp = 10
+    while curr_kp >= 8:
+        kp = storm_time_df[~storm_time_df['storm']]['Kp']
+        kp_max = kp.idxmax()
+        storm_time_df.loc[kp_max-delta_t:kp_max+delta_t,'storm'] = True
+        curr_kp = storm_time_df.loc[kp_max,'Kp']
+        #print(dst_min, curr_dst)
+        list_of_times.append(kp_max)
         
-print("Number of events with both selections satisfied:", nBoth)
-print("Number of events with only Kp satisfied:", nKp)
-print("Number of events with only Dst satisfied:", nDst)
+    print("Initial number of storms", len(list_of_times))
+    temp = storm_time_df['storm']
+    # first row is a True preceded by a False
+    fst = temp.index[temp & ~ temp.shift(1).fillna(False)]
 
-storm_df = pd.DataFrame(storm_times, columns=["Start", "End"])
-storm_df.to_csv((kp_dst_path / "storm_periods.csv"), index=False)
+    # last row is a True followed by a False
+    lst = temp.index[temp & ~ temp.shift(-1).fillna(False)]
 
-# if __name__ == "__main__":
-#     main()
+    storm_times = []
+    for i in range(len(fst)):
+        delta_t = lst[i]-fst[i]
+        # Storm width in hours
+        storm_hours = delta_t.days*24 + delta_t.seconds/3600
+        if storm_hours < 3: continue
+            
+        storm_times.append((fst[i], lst[i]))
+        
+    print("Number of storms after combining overlapping times:", len(storm_times))
 
-# %%
+    nDst = 0
+    nKp = 0
+    nBoth = 0
+    for x in storm_times:
+        maxKp = storm_time_df.loc[x[0]:x[1]]['Kp'].max()
+        minDst = storm_time_df.loc[x[0]:x[1]]['DST'].min()
+        if maxKp >= 8 and minDst <= -140:
+            nBoth += 1
+        elif maxKp >= 8:
+            nKp += 1
+        elif minDst <= -140:
+            nDst += 1
+        else:
+            print("Error, shouldn't get here!", maxKp, minDst)
+            
+    print("Number of events with both selections satisfied:", nBoth)
+    print("Number of events with only Kp satisfied:", nKp)
+    print("Number of events with only Dst satisfied:", nDst)
+
+    storm_df = pd.DataFrame(storm_times, columns=["Start", "End"])
+    storm_df.to_csv((kp_dst_path / "storm_periods.csv"), index=False)
+
+
+if __name__ == "__main__":
+    main()
+

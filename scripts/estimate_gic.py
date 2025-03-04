@@ -38,6 +38,9 @@ import geopandas as gpd
 # Import custom functions
 from build_admittance_matrix import process_substation_buses, random_admittance_matrix
 
+# print(cp.__version__)
+# print(cp.cuda.runtime.runtimeGetVersion())  # Check runtime version
+# print(cp.cuda.runtime.driverGetVersion())  # Check driver version
 
 # Custom logger
 # Set up logging, a reusable function
@@ -71,10 +74,6 @@ def setup_logging():
 
 logger = setup_logging()
 data_loc = Path.cwd() / "data"
-
-# Define return periods
-return_periods = np.arange(25, 1001, 25)
-# return_periods = np.array([100, 500, 1000])
 
 
 # %%
@@ -111,11 +110,10 @@ def load_and_process_gic_data(data_loc, df_lines, results_path):
         - sub_look_up: Dictionary for substation lookup
         - sub_ref: Dictionary for quick substation reference
     """
-
     logger.info("Loading and processing GIC data...")
 
     # Load the data from storm maxes
-    with h5py.File(data_loc / results_path, "r") as f:
+    with h5py.File(results_path, "r") as f:
 
         logger.info("Reading geomagnetic data from geomagnetic_data.h5")
         # Read MT site information
@@ -135,10 +133,10 @@ def load_and_process_gic_data(data_loc, df_lines, results_path):
         st_patricks_b = f["events/st_patricks/B"][:]
         st_patricks_v = f["events/st_patricks/V"][:]
 
-        # Read the Gannon storm data
-        gannon_e = f["events/gannon/E"][:] / 1000
-        gannon_b = f["events/gannon/B"][:]
-        gannon_v = f["events/gannon/V"][:]
+        # # Read the Gannon storm data
+        # gannon_e = f["events/gannon/E"][:] / 1000
+        # gannon_b = f["events/gannon/B"][:]
+        # gannon_v = f["events/gannon/V"][:]
 
         e_fields, b_fields, v_fields = {}, {}, {}
 
@@ -149,7 +147,7 @@ def load_and_process_gic_data(data_loc, df_lines, results_path):
             v_fields[period] = f[f"predictions/V/{period}_year"][:]
 
     # Voltage columns for all events
-    v_cols = ["V_halloween", "V_st_patricks", "V_gannon"] + [
+    v_cols = ["V_halloween", "V_st_patricks"] + [ #, "V_gannon"
         f"V_{period}" for period in return_periods
     ]
 
@@ -162,7 +160,7 @@ def load_and_process_gic_data(data_loc, df_lines, results_path):
     mask = indices != -1
     df_lines.loc[mask, "V_halloween"] = halloween_v[indices[mask]]
     df_lines.loc[mask, "V_st_patricks"] = st_patricks_v[indices[mask]]
-    df_lines.loc[mask, "V_gannon"] = gannon_v[indices[mask]]
+    # df_lines.loc[mask, "V_gannon"] = gannon_v[indices[mask]]
 
     # Assign dynamic voltage columns
     for period in return_periods:
@@ -180,11 +178,10 @@ def load_and_process_gic_data(data_loc, df_lines, results_path):
         e_fields,
         b_fields,
         v_fields,
-        gannon_e,
+        # gannon_e,
     )
 
 
-# %%
 # Calculate the injection currents for the network
 def calculate_injection_currents(df, n_nodes, col, non_zero_indices, sub_look_up):
     """
@@ -203,6 +200,7 @@ def calculate_injection_currents(df, n_nodes, col, non_zero_indices, sub_look_up
 
     # Calculate line currents and injection currents
     for i, line in df.iterrows():
+
         # Get the source currents
         I_eff = line[col] / line["R"]
 
@@ -591,9 +589,9 @@ def get_injection_currents(df_lines, n_nodes, non_zero_indices, sub_look_up, dat
         "V_st_patricks": calculate_injection_currents(
             df_lines, n_nodes, "V_st_patricks", non_zero_indices, sub_look_up
         ),
-        "V_gannon": calculate_injection_currents(
-            df_lines, n_nodes, "V_gannon", non_zero_indices, sub_look_up
-        ),
+        # "V_gannon": calculate_injection_currents(
+        #     df_lines, n_nodes, "V_gannon", non_zero_indices, sub_look_up
+        # ),
     }
 
     # Add dynamic return period injections
@@ -757,13 +755,12 @@ def parallel_gic_calculation_and_processing(
     return df_ig
 
 
-# %%
 def nodal_voltage_calculation(Y_total, injections_data):
     """
     Optimized sequential GPU solver with batching and memory reuse.
     Uses float16 where possible for memory efficiency while maintaining numerical stability.
     """
-    cp.get_default_memory_pool().free_all_blocks()
+    # cp.get_default_memory_pool().free_all_blocks()
 
     def can_use_float16(arr):
         """Check if array values are within float16 range"""
@@ -781,93 +778,91 @@ def nodal_voltage_calculation(Y_total, injections_data):
         # Check if values are within float16 range
         return (max_abs < 65504 and min_abs > 6.1e-5) or max_abs == 0
 
-    try:
-        # Check if Y_total can use float16
-        y_dtype = cp.float16 if can_use_float16(Y_total) else cp.float32
-        Y_gpu = cp.asarray(Y_total, dtype=y_dtype)
+    # try:
+    # Check if Y_total can use float16
+    y_dtype = cp.float16 if can_use_float16(Y_total) else cp.float32
+    Y_gpu = cp.asarray(Y_total, dtype=y_dtype)
 
-        # Regularization - keep in float32 for stability
-        regularization = cp.float32(1e-6)
-        # Convert to float32 for matrix operations
-        Y_reg = (
-            Y_gpu.astype(cp.float32)
-            + cp.eye(Y_gpu.shape[0], dtype=cp.float32) * regularization
-        )
+    # Regularization - keep in float32 for stability
+    regularization = cp.float32(1e-6)
+    # Convert to float32 for matrix operations
+    Y_reg = (
+        Y_gpu.astype(cp.float32)
+        + cp.eye(Y_gpu.shape[0], dtype=cp.float32) * regularization
+    )
 
-        # Cholesky decomposition needs float32 for stability
-        L = cp.linalg.cholesky(Y_reg)
+    # Cholesky decomposition needs float32 for stability
+    L = cp.linalg.cholesky(Y_reg)
 
-        scenarios = ["V_gannon"] + [f"V_{period}" for period in return_periods]
-        tasks = [(name, injections_data.get(name)) for name in scenarios]
-        tasks = [(name, data) for name, data in tasks if data is not None]
+    scenarios = ["V_gannon"] + [f"V_{period}" for period in return_periods]
+    tasks = [(name, injections_data.get(name)) for name in scenarios]
+    tasks = [(name, data) for name, data in tasks if data is not None]
 
-        results = {}
+    results = {}
 
-        # Preallocate GPU memory
-        if tasks:
-            sample_shape = tasks[0][1].shape
-            sample_data = tasks[0][1]
+    # Preallocate GPU memory
+    if tasks:
+        sample_shape = tasks[0][1].shape
+        sample_data = tasks[0][1]
 
-            # Check if injections can use float16
-            inj_dtype = cp.float16 if can_use_float16(sample_data) else cp.float32
-            injection_gpu = cp.empty(sample_shape, dtype=inj_dtype)
+        # Check if injections can use float16
+        inj_dtype = cp.float16 if can_use_float16(sample_data) else cp.float32
+        injection_gpu = cp.empty(sample_shape, dtype=inj_dtype)
 
-        for name, injections in tasks:
-            try:
-                # Check if current injection can use float16
-                curr_dtype = cp.float16 if can_use_float16(injections) else cp.float32
+    for name, injections in tasks:
+        try:
+            # Check if current injection can use float16
+            curr_dtype = cp.float16 if can_use_float16(injections) else cp.float32
 
-                # Reallocate if shape or dtype doesn't match
-                if (
-                    injections.shape != sample_shape
-                    or injection_gpu.dtype != curr_dtype
-                ):
-                    logger.warning(
-                        f"Shape or dtype mismatch for {name}, reallocating GPU memory."
-                    )
-                    injection_gpu = cp.asarray(injections, dtype=curr_dtype)
-                else:
-                    cp.copyto(injection_gpu, cp.asarray(injections, dtype=curr_dtype))
+            # Reallocate if shape or dtype doesn't match
+            if (
+                injections.shape != sample_shape
+                or injection_gpu.dtype != curr_dtype
+            ):
+                logger.warning(
+                    f"Shape or dtype mismatch for {name}, reallocating GPU memory."
+                )
+                injection_gpu = cp.asarray(injections, dtype=curr_dtype)
+            else:
+                cp.copyto(injection_gpu, cp.asarray(injections, dtype=curr_dtype))
 
-                # Convert to float32 for solving the system
-                injection_float32 = injection_gpu.astype(cp.float32)
+            # Convert to float32 for solving the system
+            injection_float32 = injection_gpu.astype(cp.float32)
 
-                # Solve system using pre-computed Cholesky decomposition
-                P = cp.linalg.solve(L, injection_float32)
-                V_n = cp.linalg.solve(L.T, P)
+            # Solve system using pre-computed Cholesky decomposition
+            P = cp.linalg.solve(L, injection_float32)
+            V_n = cp.linalg.solve(L.T, P)
 
-                # Check if result can be stored in float16
-                if can_use_float16(V_n):
-                    V_n = V_n.astype(cp.float16)
+            # Check if result can be stored in float16
+            if can_use_float16(V_n):
+                V_n = V_n.astype(cp.float16)
 
-                # Transfer result back to CPU
-                results[name] = cp.asnumpy(V_n)
+            # Transfer result back to CPU
+            results[name] = cp.asnumpy(V_n)
 
-            except Exception as e:
-                logger.error(f"Error processing {name}: {str(e)}")
-                results[name] = None
-                continue
+        except Exception as e:
+            logger.error(f"Error processing {name}: {str(e)}")
+            results[name] = None
+            continue
 
-        # Cleanup GPU memory
-        del Y_gpu, Y_reg, L, injection_gpu, P, V_n
-        cp.get_default_memory_pool().free_all_blocks()
+        # # Cleanup GPU memory
+        # del Y_gpu, Y_reg, L, injection_gpu, P, V_n
+        # cp.get_default_memory_pool().free_all_blocks()
 
-        logger.info("All nodal voltage computations completed.")
-        return results
+        # logger.info("All nodal voltage computations completed.")
+        # return results
 
-    except Exception as e:
-        logger.error(f"{str(e)} Switching to CPU computation...")
-        return {}
+    # except Exception as e:
+    #     logger.error(f"{str(e)} Switching to CPU computation...")
+    #     return {}
 
 
-# %%
-# Generate sampled network
 def samples(
     substation_buses,
     sample_net_name="sample_network.pkl",
-    n_samples=2000,
+    n_samples=1,
     seed=42,
-):
+    ):
     """
     Generate multiple samples of network configurations:
     - Each substation gets assigned a transformer count
@@ -876,17 +871,13 @@ def samples(
     """
 
     # Define file path
-    data_path = data_loc / sample_net_name
+    data_path = data_loc / 'admittance_matrix' / sample_net_name
 
     # Check if pre-generated samples exist
     if os.path.exists(data_path):  # Changed from 'not os.path.exists'
         with open(data_path, "rb") as f:
             all_samples = pickle.load(f)
-            logger.info(
-                f"Loaded {len(all_samples)} pre-generated samples from {data_path}"
-            )
     else:
-        logger.info(f"Generating {n_samples} new samples...")
         # Set seed for reproducibility
         np.random.seed(seed)
 
@@ -1034,14 +1025,13 @@ def samples(
 # cp.get_default_memory_pool().free_all_blocks()
 
 # nodal_voltages = nodal_voltage_calculation(Y_total, injections_data)
-# %%
 
 def main(generate_grid=False):
 
     # Load the data
     # Data loc
-    data_loc = Path.cwd() / "data"
-    results_path = "geomagnetic_data_return_periods.h5"
+    data_loc = Path.cwd() / "data" 
+    results_path = data_loc / "statistical_analysis" / "geomagnetic_data_return_periods.h5"
 
     # Get substation buses data
     substation_buses, bus_ids_map, sub_look_up, df_lines, df_substations_info = (
@@ -1052,9 +1042,9 @@ def main(generate_grid=False):
     df_lines.drop(columns=["geometry"], inplace=True)
     df_lines["name"] = df_lines["name"].astype(np.int32)
 
-    transmission_line_path = (
-        data_loc / "Electric__Power_Transmission_Lines" / "trans_lines_pickle.pkl"
-    )
+    filename = "trans_lines_pickle.pkl"
+    folder = data_loc / "Electric__Power_Transmission_Lines" 
+    transmission_line_path = folder / filename
     with open(transmission_line_path, "rb") as p:
         trans_lines_gdf = pickle.load(p)
 
@@ -1076,20 +1066,18 @@ def main(generate_grid=False):
         e_fields,
         b_fields,
         v_fields,
-        gannon_e,
+        # gannon_e,
     ) = load_and_process_gic_data(data_loc, df_lines, results_path)
 
     n_nodes = len(sub_look_up)  # Number of nodes in the network
     # cLear gpu memory"""  """
 
-    # %%
-
     # Get 1000 dfs of winding GICs and np gics
     for i, trafo_data in enumerate(trafos_data):
 
         # Save the GIC DataFrame
-        filename = data_loc / f"winding_gic_rand_{i}.csv"
-
+        filename = data_loc / "admittance_matrix" / f"winding_gic_rand_{i}.csv"
+        
         if os.path.exists(filename):
             continue
 
@@ -1117,7 +1105,7 @@ def main(generate_grid=False):
         Y_n = Y_n[np.ix_(non_zero_indices, non_zero_indices)]
         Y_e = Y_e[np.ix_(non_zero_indices, non_zero_indices)]
 
-        # Y total is summ of earthing and network impedances
+        # Y total is sum of earthing and network impedances
         Y_total = Y_n + Y_e
         # Get injections data
         injections_data = get_injection_currents(
@@ -1126,115 +1114,127 @@ def main(generate_grid=False):
 
         nodal_voltages = nodal_voltage_calculation(Y_total, injections_data)
 
-        df_lines_copy = df_lines.copy()
-        df_lines_copy["from_bus"] = df_lines_copy["from_bus"].apply(
-            lambda x: sub_look_up.get(x)
-        )
-        df_lines_copy["to_bus"] = df_lines_copy["to_bus"].apply(
-            lambda x: sub_look_up.get(x)
-        )
-
-        # Calculate GIC for each return period
-        gic_data = {}
-        for period in ["gannon"] + list(return_periods):
-            # Check if V_gannon exists in nodal voltages
-            if f"V_{period}" not in nodal_voltages:
-                print("Nodal voltags", nodal_voltages)
-                continue
-            V_nodal = nodal_voltages[f"V_{period}"]
-            df_gic = calculate_GIC(
-                df_lines_copy, V_nodal, f"V_{period}", non_zero_indices, n_nodes
-            )
-            gic_data[period] = calc_trafo_gic(
-                sub_look_up,
-                df_transformers.copy(),
-                V_nodal,
-                sub_ref,
-                n_nodes,
-                non_zero_indices,
-                f"{period}-year-hazard",
-            )
-
-        # Prepare GIC DataFrames for each period
-        winding_gic_df_list = []
-        for period, gic_values in gic_data.items():
-            hash_gic_period = [
-                (trafo, winding, gic)
-                for trafo, windings in gic_values.items()
-                for winding, gic in windings.items()
-            ]
-            winding_gic_df = pd.DataFrame(
-                hash_gic_period,
-                columns=["Transformer", "Winding", f"{period}-year-hazard A/ph"],
-            )
-            winding_gic_df_list.append(winding_gic_df)
-
-        # Merge all GIC dataframes
-        winding_gic_df = pd.concat(winding_gic_df_list, axis=1).loc[
-            :, ~pd.concat(winding_gic_df_list, axis=1).columns.duplicated()
-        ]
-
-        # Finalize transformer data merge
-        df_transformers["Transformer"] = df_transformers["name"]
-        winding_gic_df = winding_gic_df.merge(
-            df_transformers[["sub_id", "Transformer", "latitude", "longitude"]],
-            on="Transformer",
-            how="inner",
-        )
-
-        # Save the GIC DataFrame
-        winding_gic_df.to_csv(filename, index=False)
-
-        # # Calculate the total GIC for the network
-        # parallel_gic_calculation_and_processing(
-        #     Y_e, nodal_voltages, non_zero_indices, n_nodes, data_loc, filename
+        # df_lines_copy = df_lines.copy()
+        # df_lines_copy["from_bus"] = df_lines_copy["from_bus"].apply(
+        #     lambda x: sub_look_up.get(x)
+        # )
+        # df_lines_copy["to_bus"] = df_lines_copy["to_bus"].apply(
+        #     lambda x: sub_look_up.get(x)
         # )
 
-        # cLear gpu memory
+        # # Calculate GIC for each return period
+        # gic_data = {}
+        # # for period in ["gannon"] + list(return_periods):
+        # for period in list(return_periods):
+        #     # Check if V_gannon exists in nodal voltages
+        #     if f"V_{period}" not in nodal_voltages:
+        #         print("Nodal voltages", f"V_{period}", nodal_voltages)
+        #         continue
+        #     V_nodal = nodal_voltages[f"V_{period}"]
+        #     df_gic = calculate_GIC(
+        #         df_lines_copy, V_nodal, f"V_{period}", non_zero_indices, n_nodes
+        #     )
+        #     gic_data[period] = calc_trafo_gic(
+        #         sub_look_up,
+        #         df_transformers.copy(),
+        #         V_nodal,
+        #         sub_ref,
+        #         n_nodes,
+        #         non_zero_indices,
+        #         f"{period}-year-hazard",
+        #     )
 
-        # Prepare the grid and mask for plotting
-        if generate_grid:
-            grid_e_100_path = data_loc / "grid_e_100.pkl"
-            grid_e_500_path = data_loc / "grid_e_500.pkl"
-            grid_e_1000_path = data_loc / "grid_e_1000.pkl"
-            grid_e_gannon_path = data_loc / "grid_e_gannon.pkl"
+        # # Prepare GIC DataFrames for each period
+        # winding_gic_df_list = []
+        # for period, gic_values in gic_data.items():
+        #     hash_gic_period = [
+        #         (trafo, winding, gic)
+        #         for trafo, windings in gic_values.items()
+        #         for winding, gic in windings.items()
+        #     ]
+        #     winding_gic_df = pd.DataFrame(
+        #         hash_gic_period,
+        #         columns=["Transformer", "Winding", f"{period}-year-hazard A/ph"],
+        #     )
+        #     winding_gic_df_list.append(winding_gic_df)
 
-            grid_file_paths = [
-                grid_e_100_path,
-                grid_e_500_path,
-                grid_e_1000_path,
-                grid_e_gannon_path,
-            ]
+        # # Merge all GIC dataframes
+        # winding_gic_df = pd.concat(winding_gic_df_list, axis=1).loc[
+        #     :, ~pd.concat(winding_gic_df_list, axis=1).columns.duplicated()
+        # ]
+        # print(len(winding_gic_df))
+        # # Finalize transformer data merge
+        # df_transformers["Transformer"] = df_transformers["name"]
+        # winding_gic_df = winding_gic_df.merge(
+        #     df_transformers[["sub_id", "Transformer", "latitude", "longitude"]],
+        #     on="Transformer",
+        #     how="inner",
+        # )
 
-            e_field_100 = e_fields[100]
-            e_field_500 = e_fields[500]
-            e_field_1000 = e_fields[1000]
-            e_field_gannon = gannon_e
+        # # Save the GIC DataFrame
+        # winding_gic_df.to_csv(filename, index=False)
 
-            e_fields_period = [e_field_100, e_field_500, e_field_1000, e_field_gannon]
+    #     # Calculate the total GIC for the network
+    #     parallel_gic_calculation_and_processing(
+    #         Y_e, nodal_voltages, non_zero_indices, n_nodes, data_loc, filename
+    #     )
 
-            # Prepare the transmission lines data for plotting
-            for grid_filename, e_field in zip(grid_file_paths, e_fields_period):
-                if not os.path.exists(grid_filename):
-                    # Generate and save the grid and mask
-                    generate_grid_and_mask(
-                        e_field,
-                        mt_coords,
-                        resolution=(500, 1000),
-                        filename=grid_filename,
-                    )
+    #     # cLear gpu memory
 
-            logging.info("Grid and mask generated and saved.")
+    #     # Prepare the grid and mask for plotting
+    #     if generate_grid:
+    #         grid_e_100_path = data_loc / "grid_e_100.pkl"
+    #         grid_e_500_path = data_loc / "grid_e_500.pkl"
+    #         grid_e_1000_path = data_loc / "grid_e_1000.pkl"
+    #         grid_e_gannon_path = data_loc / "grid_e_gannon.pkl"
 
-    line_coords_file = data_loc / "line_coords.pkl"
-    source_crs = "EPSG:4326"
-    if not os.path.exists(line_coords_file):
-        line_coordinates, valid_indices = extract_line_coordinates(
-            df_lines, filename=line_coords_file
-        )
+    #         grid_file_paths = [
+    #             grid_e_100_path,
+    #             grid_e_500_path,
+    #             grid_e_1000_path,
+    #             grid_e_gannon_path,
+    #         ]
+
+    #         e_field_100 = e_fields[100]
+    #         e_field_500 = e_fields[500]
+    #         e_field_1000 = e_fields[1000]
+    #         e_field_gannon = gannon_e
+
+    #         e_fields_period = [e_field_100, e_field_500, e_field_1000, e_field_gannon]
+
+    #         # Prepare the transmission lines data for plotting
+    #         for grid_filename, e_field in zip(grid_file_paths, e_fields_period):
+    #             if not os.path.exists(grid_filename):
+    #                 # Generate and save the grid and mask
+    #                 generate_grid_and_mask(
+    #                     e_field,
+    #                     mt_coords,
+    #                     resolution=(500, 1000),
+    #                     filename=grid_filename,
+    #                 )
+
+    #         logging.info("Grid and mask generated and saved.")
+
+    # line_coords_file = data_loc / "line_coords.pkl"
+    # source_crs = "EPSG:4326"
+    # if not os.path.exists(line_coords_file):
+    #     line_coordinates, valid_indices = extract_line_coordinates(
+    #         df_lines, filename=line_coords_file
+    #     )
 
 
 if __name__ == "__main__":
+
+    import time
+    start_time = time.time()
+
+    # Define return periods
+    return_periods = np.arange(25, 201, 50)
+    # return_periods = np.array([100, 500, 1000])
+
     main(generate_grid=False)
 
-# %%
+    end_time = time.time()
+
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time: {elapsed_time:.6f} seconds")

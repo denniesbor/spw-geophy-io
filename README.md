@@ -36,10 +36,10 @@ The focus here is applying this approach to the US. The figure below is a box di
    ├── maxV_arr_testing_2.npy         # Maximum V values
    ├── processed_geomag_data.nc       # Processed geomagnetic data
    ├── grid_e_*.pkl                   # Grid and mask data for plotting
-   ├── nerc_gdf.geojson              # NERC regions data
-   ├── final_tl_data.pkl             # Final transmission line data
-   ├── line_coords.pkl               # Line coordinates
-   └── various auxiliary files        # & more pupporting datasets
+   ├── nerc_gdf.geojson               # NERC regions data
+   ├── final_tl_data.pkl              # Final transmission line data
+   ├── line_coords.pkl                # Line coordinates
+   └── various auxiliary files        # & more supporting datasets
    ```
 
 ## Initial Setup
@@ -61,10 +61,10 @@ This script calculates maximum values for three key parameters at magnetotelluri
 
 **Prerequisites**:
 
-- Processed geomagnetic data files
+- Processed geomagnetic data files (`/preprocess/p_geomag_data.py`)
 - EMTF (Electromagnetic Transfer Function) files
 - Transmission lines dataset
-- Run `/data_routines/process_tl_sub.py` first to generate the necessary transmission and substation files
+- Run `/preprocess/p_power_grid.py` first to generate the necessary transmission and substation files
 
 **Output**:
 

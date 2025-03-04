@@ -2,5 +2,12 @@ misc
 otherDatasets
 venv
 py_scripts/data
-# data/econ_data
+cache
+data/admittance_matrix
+data/econ_data
+data/Electric__Power_Transmission_Lines/
+data/EMTF
 data/geomag_data
+data/grid_processed/*
+data/statistical_analysis/*
+data/substation_locations/*

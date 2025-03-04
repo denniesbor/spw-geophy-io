@@ -5,7 +5,11 @@
 # Some of the code is adapted from Greg Lucas's 2018 Hazard Paper.
 # Author: Dennies Bor
 # --------------------------------------------------------------------------
-# %%
+"""
+
+
+
+"""
 import os
 import time
 import sys
@@ -31,6 +35,7 @@ import matplotlib.pyplot as plt
 from pysecs import SECS
 from shapely.geometry import LineString
 
+DATA_LOC = Path(__file__).resolve().parent / ".."/ "data"
 
 # Set up logging, a reusable function
 def setup_logging():
@@ -238,11 +243,6 @@ def read_transmission_lines(translines_shp, trans_lines_pickle, site_xys):
         return trans_lines_gdf_not_na
 
 
-# %%
-# --------------------------------------------------------------------------
-# Prepare the paths and load the datasets
-# --------------------------------------------------------------------------
-data_dir = Path(__file__).resolve().parent / "data"
 def load_data(start_date=None, end_date=None):
     """
     Load geomagnetic data, MT sites, and transmission line data.
@@ -264,15 +264,15 @@ def load_data(start_date=None, end_date=None):
         obs_dict : observation dictionary for SECS
     """
     # Set up paths
-    emtf_path = data_dir / "EMTF"
+    emtf_path = DATA_LOC / "EMTF"
     mt_sites_pickle = emtf_path / "mt_pickle.pkl"
-    mag_data_path = data_dir / "processed_geomag_data.nc"
-    translines_path = data_dir / "Electric__Power_Transmission_Lines"
+    mag_data_path = DATA_LOC / "geomag_data" / "processed_geomag_data.nc"
+    translines_path = DATA_LOC / "Electric__Power_Transmission_Lines"
     trans_lines_pickle = translines_path / "trans_lines_pickle.pkl"
     translines_shp = translines_path / "Electric__Power_Transmission_Lines.shp"
 
     # Load storm periods
-    storm_data_loc = data_dir / "kp_ap_indices" / "storm_periods.csv"
+    storm_data_loc = DATA_LOC / "kp_ap_indices" / "storm_periods.csv"
     storm_df = pd.read_csv(storm_data_loc)
     storm_df["Start"] = pd.to_datetime(storm_df["Start"])
     storm_df["End"] = pd.to_datetime(storm_df["End"])
@@ -301,10 +301,6 @@ def load_data(start_date=None, end_date=None):
     }
 
     return magnetic_data, MT_sites, df, storm_df, obs_dict, site_xys
-
-# Data
-magnetic_data, MT_sites, df, storm_df, obs_dict, site_xys = load_data()
-n_trans_lines = df.shape[0]
 
 # %%
 # --------------------------------------------------------------------------
@@ -561,9 +557,9 @@ def process_storm(args):
 def main():
 
     # File paths
-    maxB_file = data_dir / "maxB_arr_testing_2.npy"
-    maxE_file = data_dir / "maxE_arr_testing_2.npy"
-    maxV_file = data_dir / "maxV_arr_testing_2.npy"
+    maxB_file = DATA_LOC / "maxB_arr_testing_2.npy"
+    maxE_file = DATA_LOC / "maxE_arr_testing_2.npy"
+    maxV_file = DATA_LOC / "maxV_arr_testing_2.npy"
 
     # Log done loading data, and print unique obs in obs_dict
     logging.info(f"Done loading data, Obs in obs_dict: {obs_dict.keys()}")
@@ -621,9 +617,12 @@ def main():
                 logging.info(f"Processed and saved storm: {i + 1}")
 
         logging.info(f"Done calculating storm maxes: {time.time() - t0}")
-        logging.info(f"Saved results to {data_dir}")
+        logging.info(f"Saved results to {DATA_LOC}")
 
 if __name__ == "__main__":
+       
+    magnetic_data, MT_sites, df, storm_df, obs_dict, site_xys = load_data()
+    n_trans_lines = df.shape[0]
+
     main()
 
-# %%
